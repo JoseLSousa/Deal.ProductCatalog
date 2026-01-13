@@ -6,18 +6,18 @@ namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ItemsController(IItemRepository itemRepository) : ControllerBase
+    public class ItemsController(IProductRepository itemRepository) : ControllerBase
     {
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            return Ok(await itemRepository.ListAllItems());
+            return Ok(await itemRepository.ListAllProducts());
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateItem(ItemDto body)
+        public async Task<IActionResult> CreateItem(ProductDto body)
         {
-            await itemRepository.CreateItem(body);
+            await itemRepository.CreateProduct(body);
             return Ok();
         }
     }
