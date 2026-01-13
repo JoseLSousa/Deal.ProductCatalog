@@ -1,0 +1,18 @@
+services:
+  database:
+    image: postgres:15
+    container_name: "postgresDb"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+  mongoDB:
+    image: mongo:latest
+    container_name: "LogsDB"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - "27017:27017"
+  
