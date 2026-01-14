@@ -1,4 +1,5 @@
 ﻿using Application.DTOs;
+using Application.DTOs.Search;
 using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
@@ -9,7 +10,7 @@ namespace Infra.Repositories
 {
     public class ProductRepository(AppDbContext context, IAuditLogService logService) : IProductRepository
     {
-        public async Task CreateProduct(ProductDto productDto)
+        public async Task CreateProduct(RequestProductDto productDto)
         {
             var categoryExists = await context.Categories
                 .AnyAsync(c => c.CategoryId == productDto.CategoryId);
@@ -50,12 +51,13 @@ namespace Infra.Repositories
             await context.SaveChangesAsync();
         }
 
-        public async Task<ProductDto?> GetProductById(Guid id)
+        public async Task<ResponseProductDto?> GetProductById(Guid id)
         {
             return await context.Products
                 .AsNoTracking()
                 .Where(p => p.ProductId == id)
-                .Select(i => new ProductDto(
+                .Select(i => new ResponseProductDto(
+                    i.ProductId,
                     i.Name,
                     i.Description,
                     i.Price,
@@ -65,11 +67,12 @@ namespace Infra.Repositories
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<List<ProductDto>> ListAllProducts()
+        public async Task<List<ResponseProductDto>> ListAllProducts()
         {
             return await context.Products
                 .AsNoTracking()
-                .Select(i => new ProductDto(
+                .Select(i => new ResponseProductDto(
+                    i.ProductId,
                     i.Name,
                     i.Description,
                     i.Price,
@@ -79,7 +82,7 @@ namespace Infra.Repositories
                 .ToListAsync();
         }
 
-        public async Task<List<ProductDto>> ListAllProducts(bool includeDeleted)
+        public async Task<List<ResponseProductDto>> ListAllProducts(bool includeDeleted)
         {
             var query = context.Products.AsNoTracking();
             if (!includeDeleted)
@@ -87,7 +90,8 @@ namespace Infra.Repositories
                 query = query.Where(p => p.DeletedAt == null);
             }
             return await query
-                .Select(i => new ProductDto(
+                .Select(i => new ResponseProductDto(
+                    i.ProductId,
                     i.Name,
                     i.Description,
                     i.Price,
@@ -97,12 +101,13 @@ namespace Infra.Repositories
                 .ToListAsync();
         }
 
-        public async Task<List<ProductDto>> GetProductsByCategory(Guid categoryId)
+        public async Task<List<ResponseProductDto>> GetProductsByCategory(Guid categoryId)
         {
             return await context.Products
                 .AsNoTracking()
                 .Where(p => p.CategoryId == categoryId && p.DeletedAt == null)
-                .Select(i => new ProductDto(
+                .Select(i => new ResponseProductDto(
+                    i.ProductId,
                     i.Name,
                     i.Description,
                     i.Price,
@@ -112,12 +117,13 @@ namespace Infra.Repositories
                 .ToListAsync();
         }
 
-        public async Task<List<ProductDto>> GetDeletedProducts()
+        public async Task<List<ResponseProductDto>> GetDeletedProducts()
         {
             return await context.Products
                 .AsNoTracking()
                 .Where(p => p.DeletedAt != null)
-                .Select(i => new ProductDto(
+                .Select(i => new ResponseProductDto(
+                    i.ProductId,
                     i.Name,
                     i.Description,
                     i.Price,
@@ -127,12 +133,13 @@ namespace Infra.Repositories
                 .ToListAsync();
         }
 
-        public async Task<List<ProductDto>> GetActiveProducts()
+        public async Task<List<ResponseProductDto>> GetActiveProducts()
         {
             return await context.Products
                 .AsNoTracking()
                 .Where(p => p.Active && p.DeletedAt == null)
-                .Select(i => new ProductDto(
+                .Select(i => new ResponseProductDto(
+                    i.ProductId,
                     i.Name,
                     i.Description,
                     i.Price,
@@ -142,12 +149,13 @@ namespace Infra.Repositories
                 .ToListAsync();
         }
 
-        public async Task<List<ProductDto>> GetInactiveProducts()
+        public async Task<List<ResponseProductDto>> GetInactiveProducts()
         {
             return await context.Products
                 .AsNoTracking()
                 .Where(p => !p.Active && p.DeletedAt == null)
-                .Select(i => new ProductDto(
+                .Select(i => new ResponseProductDto(
+                    i.ProductId,
                     i.Name,
                     i.Description,
                     i.Price,
@@ -157,7 +165,7 @@ namespace Infra.Repositories
                 .ToListAsync();
         }
 
-        public async Task UpdateProduct(Guid id, ProductDto productDto)
+        public async Task UpdateProduct(Guid id, RequestProductDto productDto)
         {
             var productExists = await context.Products.FirstOrDefaultAsync(i => i.ProductId == id)
                 ?? throw new KeyNotFoundException($"Produto com id:{id} não encontrado!");
@@ -251,6 +259,106 @@ namespace Infra.Repositories
 
             product.ClearTags();
             await context.SaveChangesAsync();
+        }
+
+        public async Task<ProductSearchResultDto> SearchProductsAsync(ProductSearchDto searchDto)
+        {
+            var query = context.Products
+                .Include(p => p.Category)
+                .Include(p => p.Tags)
+                .Where(p => !p.IsDeleted)
+                .AsQueryable();
+
+            // Filtro por termo (busca em Nome e Descrição)
+            if (!string.IsNullOrWhiteSpace(searchDto.Term))
+            {
+                var term = searchDto.Term.ToLower();
+                query = query.Where(p => 
+                    p.Name.ToLower().Contains(term) || 
+                    p.Description.ToLower().Contains(term));
+            }
+
+            // Filtro por Categoria
+            if (searchDto.CategoryId.HasValue)
+            {
+                query = query.Where(p => p.CategoryId == searchDto.CategoryId.Value);
+            }
+
+            // Filtro por Preço Mínimo
+            if (searchDto.MinPrice.HasValue)
+            {
+                query = query.Where(p => p.Price >= searchDto.MinPrice.Value);
+            }
+
+            // Filtro por Preço Máximo
+            if (searchDto.MaxPrice.HasValue)
+            {
+                query = query.Where(p => p.Price <= searchDto.MaxPrice.Value);
+            }
+
+            // Filtro por Status Ativo
+            if (searchDto.Active.HasValue)
+            {
+                query = query.Where(p => p.Active == searchDto.Active.Value);
+            }
+
+            // Filtro por Tags
+            if (searchDto.Tags != null && searchDto.Tags.Count != 0)
+            {
+                query = query.Where(p => p.Tags.Any(t => searchDto.Tags.Contains(t.Name)));
+            }
+
+            // Ordenação
+            query = searchDto.SortBy?.ToLower() switch
+            {
+                "name" => searchDto.SortDescending 
+                    ? query.OrderByDescending(p => p.Name) 
+                    : query.OrderBy(p => p.Name),
+                "price" => searchDto.SortDescending 
+                    ? query.OrderByDescending(p => p.Price) 
+                    : query.OrderBy(p => p.Price),
+                "date" => searchDto.SortDescending 
+                    ? query.OrderByDescending(p => p.CreatedAt) 
+                    : query.OrderBy(p => p.CreatedAt),
+                _ => query.OrderBy(p => p.Name)
+            };
+
+            // Calcular total antes da paginação
+            var totalItems = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalItems / (double)searchDto.PageSize);
+
+            // Calcular agregações
+            var averagePrice = await query.AnyAsync() ? await query.AverageAsync(p => p.Price) : 0;
+            
+            var itemsByCategory = await query
+                .GroupBy(p => p.Category.Name)
+                .Select(g => new { Category = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.Category, x => x.Count);
+
+            // Paginação
+            var items = await query
+                .Skip((searchDto.Page - 1) * searchDto.PageSize)
+                .Take(searchDto.PageSize)
+                .Select(p => new ResponseProductDto(
+                    p.ProductId,
+                    p.Name,
+                    p.Description,
+                    p.Price,
+                    p.Active,
+                    p.CategoryId
+                ))
+                .ToListAsync();
+
+            return new ProductSearchResultDto
+            {
+                Items = items,
+                TotalItems = totalItems,
+                TotalPages = totalPages,
+                CurrentPage = searchDto.Page,
+                PageSize = searchDto.PageSize,
+                AveragePrice = averagePrice,
+                ItemsByCategory = itemsByCategory
+            };
         }
     }
 }

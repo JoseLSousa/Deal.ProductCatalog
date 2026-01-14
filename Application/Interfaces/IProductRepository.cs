@@ -1,20 +1,24 @@
 ﻿using Application.DTOs;
+using Application.DTOs.Search;
 
 namespace Application.Interfaces
 {
     public interface IProductRepository
     {
         // Consultas
-        Task<List<ProductDto>> ListAllProducts(bool includeDeleted = false);
-        Task<ProductDto?> GetProductById(Guid id);
-        Task<List<ProductDto>> GetProductsByCategory(Guid categoryId);
-        Task<List<ProductDto>> GetDeletedProducts();
-        Task<List<ProductDto>> GetActiveProducts();
-        Task<List<ProductDto>> GetInactiveProducts();
+        Task<List<ResponseProductDto>> ListAllProducts(bool includeDeleted = false);
+        Task<ResponseProductDto?> GetProductById(Guid id);
+        Task<List<ResponseProductDto>> GetProductsByCategory(Guid categoryId);
+        Task<List<ResponseProductDto>> GetDeletedProducts();
+        Task<List<ResponseProductDto>> GetActiveProducts();
+        Task<List<ResponseProductDto>> GetInactiveProducts();
+        
+        // Busca avançada
+        Task<ProductSearchResultDto> SearchProductsAsync(ProductSearchDto searchDto);
 
         // Comandos básicos
-        Task CreateProduct(ProductDto productDto);
-        Task UpdateProduct(Guid id, ProductDto productDto);
+        Task CreateProduct(RequestProductDto productDto);
+        Task UpdateProduct(Guid id, RequestProductDto productDto);
         Task UpdateProductPrice(Guid id, decimal newPrice);
         Task UpdateProductDescription(Guid id, string newDescription);
 
