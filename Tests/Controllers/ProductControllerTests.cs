@@ -22,10 +22,10 @@ namespace Tests.Controllers
         public async Task GetAll_ShouldReturnOkWithProducts()
         {
             // Arrange
-            var products = new List<ProductDto>
+            var products = new List<ResponseProductDto>
             {
-                new("Produto 1", "Descrição 1", 10.00m, true, Guid.NewGuid()),
-                new("Produto 2", "Descrição 2", 20.00m, true, Guid.NewGuid())
+                new(Guid.NewGuid(), "Produto 1", "Descrição 1", 10.00m, true, Guid.NewGuid()),
+                new(Guid.NewGuid(), "Produto 2", "Descrição 2", 20.00m, true, Guid.NewGuid())
             };
             _mockRepository.Setup(r => r.ListAllProducts(false)).ReturnsAsync(products);
 
@@ -43,7 +43,7 @@ namespace Tests.Controllers
         public async Task GetAll_WithIncludeDeleted_ShouldCallRepositoryWithTrueParameter()
         {
             // Arrange
-            _mockRepository.Setup(r => r.ListAllProducts(true)).ReturnsAsync(new List<ProductDto>());
+            _mockRepository.Setup(r => r.ListAllProducts(true)).ReturnsAsync(new List<ResponseProductDto>());
 
             // Act
             await _controller.GetAll(includeDeleted: true);
@@ -57,7 +57,7 @@ namespace Tests.Controllers
         {
             // Arrange
             var productId = Guid.NewGuid();
-            var product = new ProductDto("Produto", "Descrição", 10.00m, true, Guid.NewGuid());
+            var product = new ResponseProductDto(productId, "Produto", "Descrição", 10.00m, true, Guid.NewGuid());
             _mockRepository.Setup(r => r.GetProductById(productId)).ReturnsAsync(product);
 
             // Act
@@ -74,7 +74,7 @@ namespace Tests.Controllers
         {
             // Arrange
             var productId = Guid.NewGuid();
-            _mockRepository.Setup(r => r.GetProductById(productId)).ReturnsAsync((ProductDto?)null);
+            _mockRepository.Setup(r => r.GetProductById(productId)).ReturnsAsync((ResponseProductDto?)null);
 
             // Act
             var result = await _controller.GetById(productId);
@@ -83,14 +83,16 @@ namespace Tests.Controllers
             result.Should().BeOfType<NotFoundObjectResult>();
         }
 
+        // TESTES OBSOLETOS - Endpoints removidos do controller
+        /*
         [Fact]
         public async Task GetByCategory_ShouldReturnProductsInCategory()
         {
             // Arrange
             var categoryId = Guid.NewGuid();
-            var products = new List<ProductDto>
+            var products = new List<ResponseProductDto>
             {
-                new("Produto 1", "Descrição", 10.00m, true, categoryId)
+                new(Guid.NewGuid(), "Produto 1", "Descrição", 10.00m, true, categoryId)
             };
             _mockRepository.Setup(r => r.GetProductsByCategory(categoryId)).ReturnsAsync(products);
 
@@ -107,9 +109,9 @@ namespace Tests.Controllers
         public async Task GetDeleted_ShouldReturnDeletedProducts()
         {
             // Arrange
-            var deletedProducts = new List<ProductDto>
+            var deletedProducts = new List<ResponseProductDto>
             {
-                new("Produto Deletado", "Descrição", 10.00m, false, Guid.NewGuid())
+                new(Guid.NewGuid(), "Produto Deletado", "Descrição", 10.00m, false, Guid.NewGuid())
             };
             _mockRepository.Setup(r => r.GetDeletedProducts()).ReturnsAsync(deletedProducts);
 
@@ -125,7 +127,7 @@ namespace Tests.Controllers
         public async Task GetActive_ShouldReturnActiveProducts()
         {
             // Arrange
-            _mockRepository.Setup(r => r.GetActiveProducts()).ReturnsAsync(new List<ProductDto>());
+            _mockRepository.Setup(r => r.GetActiveProducts()).ReturnsAsync(new List<ResponseProductDto>());
 
             // Act
             var result = await _controller.GetActive();
@@ -139,7 +141,7 @@ namespace Tests.Controllers
         public async Task GetInactive_ShouldReturnInactiveProducts()
         {
             // Arrange
-            _mockRepository.Setup(r => r.GetInactiveProducts()).ReturnsAsync(new List<ProductDto>());
+            _mockRepository.Setup(r => r.GetInactiveProducts()).ReturnsAsync(new List<ResponseProductDto>());
 
             // Act
             var result = await _controller.GetInactive();
@@ -148,19 +150,22 @@ namespace Tests.Controllers
             result.Should().BeOfType<OkObjectResult>();
             _mockRepository.Verify(r => r.GetInactiveProducts(), Times.Once);
         }
+        */
 
         [Fact]
-        public async Task Create_ShouldReturnOk()
+        public async Task Create_ShouldReturnCreated()
         {
             // Arrange
-            var productDto = new ProductDto("Produto", "Descrição", 10.00m, true, Guid.NewGuid());
+            var productDto = new RequestProductDto("Produto", "Descrição", 10.00m, true, Guid.NewGuid());
             _mockRepository.Setup(r => r.CreateProduct(productDto)).Returns(Task.CompletedTask);
 
             // Act
             var result = await _controller.Create(productDto);
 
             // Assert
-            result.Should().BeOfType<OkObjectResult>();
+            result.Should().BeOfType<ObjectResult>();
+            var objectResult = result as ObjectResult;
+            objectResult!.StatusCode.Should().Be(201);
             _mockRepository.Verify(r => r.CreateProduct(productDto), Times.Once);
         }
 
@@ -169,7 +174,7 @@ namespace Tests.Controllers
         {
             // Arrange
             var productId = Guid.NewGuid();
-            var productDto = new ProductDto("Produto Atualizado", "Nova Descrição", 15.00m, true, Guid.NewGuid());
+            var productDto = new RequestProductDto("Produto Atualizado", "Nova Descrição", 15.00m, true, Guid.NewGuid());
             _mockRepository.Setup(r => r.UpdateProduct(productId, productDto)).Returns(Task.CompletedTask);
 
             // Act

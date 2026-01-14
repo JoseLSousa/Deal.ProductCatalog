@@ -22,10 +22,10 @@ namespace Tests.Controllers
         public async Task GetAll_ShouldReturnOkWithCategories()
         {
             // Arrange
-            var categories = new List<CategoryDto>
+            var categories = new List<ResponseCategoryDto>
             {
-                new("Categoria 1"),
-                new("Categoria 2")
+                new(Guid.NewGuid(), "Categoria 1"),
+                new(Guid.NewGuid(), "Categoria 2")
             };
             _mockRepository.Setup(r => r.ListAllCategories(false)).ReturnsAsync(categories);
 
@@ -42,7 +42,7 @@ namespace Tests.Controllers
         public async Task GetAll_WithIncludeDeleted_ShouldCallRepositoryWithTrueParameter()
         {
             // Arrange
-            _mockRepository.Setup(r => r.ListAllCategories(true)).ReturnsAsync(new List<CategoryDto>());
+            _mockRepository.Setup(r => r.ListAllCategories(true)).ReturnsAsync(new List<ResponseCategoryDto>());
 
             // Act
             await _controller.GetAll(includeDeleted: true);
@@ -56,7 +56,7 @@ namespace Tests.Controllers
         {
             // Arrange
             var categoryId = Guid.NewGuid();
-            var category = new CategoryDto("Categoria");
+            var category = new ResponseCategoryDto(categoryId, "Categoria");
             _mockRepository.Setup(r => r.GetCategoryById(categoryId)).ReturnsAsync(category);
 
             // Act
@@ -73,7 +73,7 @@ namespace Tests.Controllers
         {
             // Arrange
             var categoryId = Guid.NewGuid();
-            _mockRepository.Setup(r => r.GetCategoryById(categoryId)).ReturnsAsync((CategoryDto?)null);
+            _mockRepository.Setup(r => r.GetCategoryById(categoryId)).ReturnsAsync((ResponseCategoryDto?)null);
 
             // Act
             var result = await _controller.GetById(categoryId);
@@ -86,7 +86,7 @@ namespace Tests.Controllers
         public async Task GetDeleted_ShouldReturnDeletedCategories()
         {
             // Arrange
-            var deletedCategories = new List<CategoryDto> { new("Categoria Deletada") };
+            var deletedCategories = new List<ResponseCategoryDto> { new(Guid.NewGuid(), "Categoria Deletada") };
             _mockRepository.Setup(r => r.GetDeletedCategories()).ReturnsAsync(deletedCategories);
 
             // Act
@@ -101,7 +101,7 @@ namespace Tests.Controllers
         public async Task Create_ShouldReturnOk()
         {
             // Arrange
-            var categoryDto = new CategoryDto("Nova Categoria");
+            var categoryDto = new RequestCategoryDto("Nova Categoria");
             _mockRepository.Setup(r => r.CreateCategory(categoryDto)).Returns(Task.CompletedTask);
 
             // Act
@@ -113,11 +113,43 @@ namespace Tests.Controllers
         }
 
         [Fact]
+        public async Task Create_WhenArgumentException_ShouldReturnBadRequest()
+        {
+            // Arrange
+            var categoryDto = new RequestCategoryDto("Nova Categoria");
+            _mockRepository.Setup(r => r.CreateCategory(categoryDto))
+                .ThrowsAsync(new ArgumentException("Nome inválido"));
+
+            // Act
+            var result = await _controller.Create(categoryDto);
+
+            // Assert
+            result.Should().BeOfType<BadRequestObjectResult>();
+        }
+
+        [Fact]
+        public async Task Create_WhenException_ShouldReturnInternalServerError()
+        {
+            // Arrange
+            var categoryDto = new RequestCategoryDto("Nova Categoria");
+            _mockRepository.Setup(r => r.CreateCategory(categoryDto))
+                .ThrowsAsync(new Exception("Erro inesperado"));
+
+            // Act
+            var result = await _controller.Create(categoryDto);
+
+            // Assert
+            result.Should().BeOfType<ObjectResult>();
+            var objectResult = result as ObjectResult;
+            objectResult!.StatusCode.Should().Be(500);
+        }
+
+        [Fact]
         public async Task Update_ShouldReturnNoContent()
         {
             // Arrange
             var categoryId = Guid.NewGuid();
-            var categoryDto = new CategoryDto("Categoria Atualizada");
+            var categoryDto = new RequestCategoryDto("Categoria Atualizada");
             _mockRepository.Setup(r => r.UpdateCategory(categoryId, categoryDto)).Returns(Task.CompletedTask);
 
             // Act
@@ -175,6 +207,22 @@ namespace Tests.Controllers
         }
 
         [Fact]
+        public async Task AddProduct_WhenNotFound_ShouldReturnNotFound()
+        {
+            // Arrange
+            var categoryId = Guid.NewGuid();
+            var productId = Guid.NewGuid();
+            _mockRepository.Setup(r => r.AddProductToCategory(categoryId, productId))
+                .ThrowsAsync(new KeyNotFoundException("Categoria ou produto não encontrado"));
+
+            // Act
+            var result = await _controller.AddProduct(categoryId, productId);
+
+            // Assert
+            result.Should().BeOfType<NotFoundObjectResult>();
+        }
+
+        [Fact]
         public async Task RemoveProduct_ShouldReturnNoContent()
         {
             // Arrange
@@ -188,6 +236,22 @@ namespace Tests.Controllers
             // Assert
             result.Should().BeOfType<NoContentResult>();
             _mockRepository.Verify(r => r.RemoveProductFromCategory(categoryId, productId), Times.Once);
+        }
+
+        [Fact]
+        public async Task RemoveProduct_WhenNotFound_ShouldReturnNotFound()
+        {
+            // Arrange
+            var categoryId = Guid.NewGuid();
+            var productId = Guid.NewGuid();
+            _mockRepository.Setup(r => r.RemoveProductFromCategory(categoryId, productId))
+                .ThrowsAsync(new KeyNotFoundException("Categoria ou produto não encontrado"));
+
+            // Act
+            var result = await _controller.RemoveProduct(categoryId, productId);
+
+            // Assert
+            result.Should().BeOfType<NotFoundObjectResult>();
         }
     }
 }

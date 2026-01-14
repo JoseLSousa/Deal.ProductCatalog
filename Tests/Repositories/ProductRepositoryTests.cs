@@ -35,7 +35,7 @@ namespace Tests.Repositories
             await _context.SaveChangesAsync();
             _context.ChangeTracker.Clear();
 
-            var productDto = new ProductDto("Produto Teste", "Descrição", 10.00m, true, category.CategoryId);
+            var productDto = new RequestProductDto("Produto Teste", "Descrição", 10.00m, true, category.CategoryId);
 
             // Act
             await _repository.CreateProduct(productDto);
@@ -55,7 +55,7 @@ namespace Tests.Repositories
         {
             // Arrange
             var nonExistentCategoryId = Guid.NewGuid();
-            var productDto = new ProductDto("Produto Teste", "Descrição", 10.00m, true, nonExistentCategoryId);
+            var productDto = new RequestProductDto("Produto Teste", "Descrição", 10.00m, true, nonExistentCategoryId);
 
             // Act
             Func<Task> act = async () => await _repository.CreateProduct(productDto);
@@ -248,7 +248,7 @@ namespace Tests.Repositories
             await _context.Products.AddAsync(product);
             await _context.SaveChangesAsync();
 
-            var updateDto = new ProductDto("Produto Atualizado", "Descrição", 10.00m, true, category.CategoryId);
+            var updateDto = new RequestProductDto("Produto Atualizado", "Descrição", 10.00m, true, category.CategoryId);
 
             // Act
             await _repository.UpdateProduct(product.ProductId, updateDto);
@@ -263,7 +263,7 @@ namespace Tests.Repositories
         {
             // Arrange
             var categoryId = Guid.NewGuid();
-            var updateDto = new ProductDto("Produto", "Descrição", 10.00m, true, categoryId);
+            var updateDto = new RequestProductDto("Produto", "Descrição", 10.00m, true, categoryId);
             var nonExistentId = Guid.NewGuid();
 
             // Act

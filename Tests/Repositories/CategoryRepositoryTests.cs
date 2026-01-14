@@ -26,7 +26,7 @@ namespace Tests.Repositories
         public async Task CreateCategory_ShouldAddCategoryToDatabase()
         {
             // Arrange
-            var categoryDto = new CategoryDto("Categoria Teste");
+            var categoryDto = new RequestCategoryDto("Categoria Teste");
 
             // Act
             await _repository.CreateCategory(categoryDto);
@@ -133,7 +133,7 @@ namespace Tests.Repositories
             await _context.Categories.AddAsync(category);
             await _context.SaveChangesAsync();
 
-            var updateDto = new CategoryDto("Categoria Atualizada");
+            var updateDto = new RequestCategoryDto("Categoria Atualizada");
 
             // Act
             await _repository.UpdateCategory(category.CategoryId, updateDto);
@@ -147,7 +147,7 @@ namespace Tests.Repositories
         public async Task UpdateCategory_WhenNotFound_ShouldThrowException()
         {
             // Arrange
-            var updateDto = new CategoryDto("Categoria");
+            var updateDto = new RequestCategoryDto("Categoria");
 
             // Act
             Func<Task> act = async () => await _repository.UpdateCategory(Guid.NewGuid(), updateDto);

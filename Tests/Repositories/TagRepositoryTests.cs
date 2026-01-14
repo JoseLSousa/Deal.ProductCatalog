@@ -134,7 +134,7 @@ namespace Tests.Repositories
             var tag1 = new Tag("Tag 1");
             var tag2 = new Tag("Tag 2");
             var tag3 = new Tag("Tag 3");
-            
+
             await _context.Categories.AddAsync(category);
             await _context.Products.AddAsync(product);
             await _context.SaveChangesAsync();
@@ -250,7 +250,7 @@ namespace Tests.Repositories
             var category = new Category("Categoria");
             var product = new Product("Produto", "Descrição", 10.00m, true, category.CategoryId);
             var tag = new Tag("Tag");
-            
+
             await _context.Categories.AddAsync(category);
             await _context.Products.AddAsync(product);
             await _context.Tags.AddAsync(tag);
