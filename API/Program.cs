@@ -8,17 +8,7 @@ builder.Services.AddInfraServices(builder.Configuration);
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
-app.MapControllers();
+// Usar o método de configuração de middleware
+app.ConfigureApiMiddleware();
 
 app.Run();
