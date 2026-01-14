@@ -22,6 +22,16 @@ namespace Infra.Data.Configurations
                 .IsRequired()
                 .HasDefaultValue(true);
 
+            builder.Property(p => p.CreatedAt)
+                .IsRequired();
+
+            builder.Property(p => p.UpdatedAt)
+                .IsRequired();
+
+            builder.Property(p => p.DeletedAt);
+
+            builder.Ignore(p => p.IsDeleted);
+
             builder.HasIndex(p => p.Name);
 
             builder.HasIndex(p => p.CategoryId);

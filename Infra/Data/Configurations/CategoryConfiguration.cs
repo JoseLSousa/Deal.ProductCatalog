@@ -14,6 +14,16 @@ namespace Infra.Data.Configurations
                 .IsRequired()
                 .HasMaxLength(100);
 
+            builder.Property(c => c.CreatedAt)
+                .IsRequired();
+
+            builder.Property(c => c.UpdatedAt)
+                .IsRequired();
+
+            builder.Property(c => c.DeletedAt);
+
+            builder.Ignore(c => c.IsDeleted);
+
             builder.HasIndex(c => c.Name)
                 .IsUnique();
 

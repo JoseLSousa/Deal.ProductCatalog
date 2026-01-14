@@ -14,6 +14,16 @@ namespace Infra.Data.Configurations
                    .IsRequired()
                    .HasMaxLength(100);
 
+            builder.Property(t => t.CreatedAt)
+                .IsRequired();
+
+            builder.Property(t => t.UpdatedAt)
+                .IsRequired();
+
+            builder.Property(t => t.DeletedAt);
+
+            builder.Ignore(t => t.IsDeleted);
+
             builder.HasOne(t => t.Product)
                      .WithMany(p => p.Tags)
                      .HasForeignKey(t => t.ProductId)
