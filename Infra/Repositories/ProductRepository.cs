@@ -266,7 +266,7 @@ namespace Infra.Repositories
             var query = context.Products
                 .Include(p => p.Category)
                 .Include(p => p.Tags)
-                .Where(p => !p.IsDeleted)
+                .Where(p => p.DeletedAt == null)
                 .AsQueryable();
 
             // Filtro por termo (busca em Nome e Descrição)

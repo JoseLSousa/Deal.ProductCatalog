@@ -20,6 +20,13 @@ namespace Infra.Services
 
         public async Task<ProductReportDto> GetReportDataAsync()
         {
+            // Debug: verificar total de produtos no banco
+            var totalProducts = await _context.Products.CountAsync();
+            var activeCount = await _context.Products.Where(p => p.Active).CountAsync();
+            var notDeletedCount = await _context.Products.Where(p => p.DeletedAt == null).CountAsync();
+            
+            Console.WriteLine($"[DEBUG] Total produtos: {totalProducts}, Ativos: {activeCount}, Não deletados: {notDeletedCount}");
+
             var activeProducts = await _context.Products
                 .Include(p => p.Category)
                 .Include(p => p.Tags)
@@ -27,15 +34,19 @@ namespace Infra.Services
                 .OrderBy(p => p.Name)
                 .ToListAsync();
 
+            Console.WriteLine($"[DEBUG] Produtos encontrados para relatório: {activeProducts.Count}");
+
             var report = new ProductReportDto();
 
             report.Products = activeProducts.Select(p => new ProductReportItemDto
             {
                 Name = p.Name,
                 Description = p.Description,
-                Category = p.Category.Name,
+                Category = p.Category?.Name ?? "Sem categoria",
                 Price = p.Price,
-                Tags = string.Join(", ", p.Tags.Select(t => t.Name)),
+                Tags = p.Tags != null && p.Tags.Any() 
+                    ? string.Join(", ", p.Tags.Where(t => t.DeletedAt == null).Select(t => t.Name))
+                    : string.Empty,
                 CreatedAt = p.CreatedAt
             }).ToList();
 
@@ -45,7 +56,7 @@ namespace Infra.Services
                 report.Statistics.AveragePrice = activeProducts.Average(p => p.Price);
                 
                 report.Statistics.ProductsByCategory = activeProducts
-                    .GroupBy(p => p.Category.Name)
+                    .GroupBy(p => p.Category?.Name ?? "Sem categoria")
                     .ToDictionary(g => g.Key, g => g.Count());
 
                 report.Statistics.Top3MostExpensive = activeProducts
