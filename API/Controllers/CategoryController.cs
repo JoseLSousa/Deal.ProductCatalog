@@ -1,23 +1,27 @@
 using Application.DTOs;
 using Application.Interfaces;
+using Domain.Constants;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class CategoryController(ICategoryRepository categoryRepository) : ControllerBase
     {
-        // GET: api/category
+        // GET: Leitura para todos
         [HttpGet]
+        [Authorize(Roles = $"{Roles.Admin},{Roles.Editor},{Roles.Viewer}")]
         public async Task<IActionResult> GetAll([FromQuery] bool includeDeleted = false)
         {
             var categories = await categoryRepository.ListAllCategories(includeDeleted);
             return Ok(categories);
         }
 
-        // GET: api/category/{id}
         [HttpGet("{id}")]
+        [Authorize(Roles = $"{Roles.Admin},{Roles.Editor},{Roles.Viewer}")]
         public async Task<IActionResult> GetById(Guid id)
         {
             var category = await categoryRepository.GetCategoryById(id);
@@ -27,17 +31,18 @@ namespace API.Controllers
             return Ok(category);
         }
 
-        // GET: api/category/deleted
         [HttpGet("deleted")]
+        [Authorize(Roles = $"{Roles.Admin},{Roles.Editor},{Roles.Viewer}")]
         public async Task<IActionResult> GetDeleted()
         {
             var categories = await categoryRepository.GetDeletedCategories();
             return Ok(categories);
         }
 
-        // POST: api/category
+        // POST/PUT: Admin e Editor
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CategoryDto categoryDto)
+        [Authorize(Policy = Policies.CanWrite)]
+        public async Task<IActionResult> Create([FromBody] RequestCategoryDto categoryDto)
         {
             try
             {
@@ -54,9 +59,9 @@ namespace API.Controllers
             }
         }
 
-        // PUT: api/category/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(Guid id, [FromBody] CategoryDto categoryDto)
+        [Authorize(Policy = Policies.CanWrite)]
+        public async Task<IActionResult> Update(Guid id, [FromBody] RequestCategoryDto categoryDto)
         {
             try
             {
@@ -73,8 +78,9 @@ namespace API.Controllers
             }
         }
 
-        // DELETE: api/category/{id}
+        // DELETE: Apenas Admin
         [HttpDelete("{id}")]
+        [Authorize(Policy = Policies.CanDelete)]
         public async Task<IActionResult> Delete(Guid id)
         {
             try
@@ -92,8 +98,8 @@ namespace API.Controllers
             }
         }
 
-        // POST: api/category/{id}/restore
         [HttpPost("{id}/restore")]
+        [Authorize(Policy = Policies.CanDelete)]
         public async Task<IActionResult> Restore(Guid id)
         {
             try
@@ -111,8 +117,8 @@ namespace API.Controllers
             }
         }
 
-        // POST: api/category/{categoryId}/products/{productId}
         [HttpPost("{categoryId}/products/{productId}")]
+        [Authorize(Policy = Policies.CanWrite)]
         public async Task<IActionResult> AddProduct(Guid categoryId, Guid productId)
         {
             try
@@ -126,8 +132,8 @@ namespace API.Controllers
             }
         }
 
-        // DELETE: api/category/{categoryId}/products/{productId}
         [HttpDelete("{categoryId}/products/{productId}")]
+        [Authorize(Policy = Policies.CanDelete)]
         public async Task<IActionResult> RemoveProduct(Guid categoryId, Guid productId)
         {
             try

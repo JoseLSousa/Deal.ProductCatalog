@@ -1,23 +1,42 @@
 using Application.DTOs;
+using Application.DTOs.Search;
 using Application.Interfaces;
+using Domain.Constants;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ProductController(IProductRepository productRepository) : ControllerBase
     {
-        // GET: api/product
         [HttpGet]
+        [Authorize(Roles = $"{Roles.Admin},{Roles.Editor},{Roles.Viewer}")]
         public async Task<IActionResult> GetAll([FromQuery] bool includeDeleted = false)
         {
             var products = await productRepository.ListAllProducts(includeDeleted);
             return Ok(products);
         }
 
-        // GET: api/product/{id}
-        [HttpGet("{id}")]
+        [HttpGet("search")]
+        [Authorize(Roles = $"{Roles.Admin},{Roles.Editor},{Roles.Viewer}")]
+        public async Task<IActionResult> Search([FromQuery] ProductSearchDto searchDto)
+        {
+            try
+            {
+                var result = await productRepository.SearchProductsAsync(searchDto);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Erro ao buscar produtos.", detail = ex.Message });
+            }
+        }
+
+        [HttpGet("{id}", Name = nameof(GetById))]
+        [Authorize(Roles = $"{Roles.Admin},{Roles.Editor},{Roles.Viewer}")]
         public async Task<IActionResult> GetById(Guid id)
         {
             var product = await productRepository.GetProductById(id);
@@ -27,47 +46,24 @@ namespace API.Controllers
             return Ok(product);
         }
 
-        // GET: api/product/category/{categoryId}
-        [HttpGet("category/{categoryId}")]
-        public async Task<IActionResult> GetByCategory(Guid categoryId)
-        {
-            var products = await productRepository.GetProductsByCategory(categoryId);
-            return Ok(products);
-        }
-
-        // GET: api/product/deleted
-        [HttpGet("deleted")]
-        public async Task<IActionResult> GetDeleted()
-        {
-            var products = await productRepository.GetDeletedProducts();
-            return Ok(products);
-        }
-
-        // GET: api/product/active
-        [HttpGet("active")]
-        public async Task<IActionResult> GetActive()
-        {
-            var products = await productRepository.GetActiveProducts();
-            return Ok(products);
-        }
-
-        // GET: api/product/inactive
-        [HttpGet("inactive")]
-        public async Task<IActionResult> GetInactive()
-        {
-            var products = await productRepository.GetInactiveProducts();
-            return Ok(products);
-        }
-
-        // POST: api/product
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] ProductDto productDto)
+        [Authorize(Policy = Policies.CanWrite)]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> Create([FromBody] RequestProductDto productDto)
         {
             try
             {
                 await productRepository.CreateProduct(productDto);
-                // Nota: Idealmente, deveria retornar o ID real do produto criado
-                return Ok(new { message = "Produto criado com sucesso." });
+                
+                // Em um cenário real, CreateProduct deveria retornar o ID do produto criado
+                // Por enquanto, retornamos 201 Created sem Location header
+                return StatusCode(StatusCodes.Status201Created, new 
+                { 
+                    message = "Produto criado com sucesso.",
+                    product = productDto
+                });
             }
             catch (ArgumentException ex)
             {
@@ -83,92 +79,191 @@ namespace API.Controllers
             }
         }
 
-        // PUT: api/product/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(Guid id, [FromBody] ProductDto productDto)
+        [Authorize(Policy = Policies.CanWrite)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> Update(Guid id, [FromBody] RequestProductDto productDto)
         {
-            await productRepository.UpdateProduct(id, productDto);
-            return NoContent();
+            try
+            {
+                await productRepository.UpdateProduct(id, productDto);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
         }
 
-        // PATCH: api/product/{id}/price
         [HttpPatch("{id}/price")]
+        [Authorize(Policy = Policies.CanWrite)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdatePrice(Guid id, [FromBody] decimal newPrice)
         {
-            await productRepository.UpdateProductPrice(id, newPrice);
-            return NoContent();
+            try
+            {
+                await productRepository.UpdateProductPrice(id, newPrice);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
         }
 
-        // PATCH: api/product/{id}/description
         [HttpPatch("{id}/description")]
+        [Authorize(Policy = Policies.CanWrite)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateDescription(Guid id, [FromBody] string newDescription)
         {
-            await productRepository.UpdateProductDescription(id, newDescription);
-            return NoContent();
+            try
+            {
+                await productRepository.UpdateProductDescription(id, newDescription);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
         }
 
-        // DELETE: api/product/{id}
         [HttpDelete("{id}")]
+        [Authorize(Policy = Policies.CanDelete)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Delete(Guid id)
         {
-            await productRepository.DeleteProduct(id);
-            return NoContent();
+            try
+            {
+                await productRepository.DeleteProduct(id);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
         }
 
-        // POST: api/product/{id}/restore
-        [HttpPost("{id}/restore")]
+        [HttpPatch("{id}/restore")]
+        [Authorize(Policy = Policies.CanDelete)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Restore(Guid id)
         {
-            await productRepository.RestoreProduct(id);
-            return NoContent();
+            try
+            {
+                await productRepository.RestoreProduct(id);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
         }
 
-        // POST: api/product/{id}/activate
-        [HttpPost("{id}/activate")]
+        [HttpPatch("{id}/activate")]
+        [Authorize(Policy = Policies.CanWrite)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Activate(Guid id)
         {
-            await productRepository.ActivateProduct(id);
-            return NoContent();
+            try
+            {
+                await productRepository.ActivateProduct(id);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
         }
 
-        // POST: api/product/{id}/deactivate
-        [HttpPost("{id}/deactivate")]
+        [HttpPatch("{id}/deactivate")]
+        [Authorize(Policy = Policies.CanWrite)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Deactivate(Guid id)
         {
-            await productRepository.DeactivateProduct(id);
-            return NoContent();
+            try
+            {
+                await productRepository.DeactivateProduct(id);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
         }
 
-        // PATCH: api/product/{productId}/category/{newCategoryId}
         [HttpPatch("{productId}/category/{newCategoryId}")]
+        [Authorize(Policy = Policies.CanWrite)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> ChangeCategory(Guid productId, Guid newCategoryId)
         {
-            await productRepository.ChangeProductCategory(productId, newCategoryId);
-            return NoContent();
+            try
+            {
+                await productRepository.ChangeProductCategory(productId, newCategoryId);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
         }
 
-        // POST: api/product/{productId}/tags/{tagId}
         [HttpPost("{productId}/tags/{tagId}")]
+        [Authorize(Policy = Policies.CanWrite)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> AddTag(Guid productId, Guid tagId)
         {
-            await productRepository.AddTagToProduct(productId, tagId);
-            return NoContent();
+            try
+            {
+                await productRepository.AddTagToProduct(productId, tagId);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
         }
 
-        // DELETE: api/product/{productId}/tags/{tagId}
         [HttpDelete("{productId}/tags/{tagId}")]
+        [Authorize(Policy = Policies.CanDelete)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> RemoveTag(Guid productId, Guid tagId)
         {
-            await productRepository.RemoveTagFromProduct(productId, tagId);
-            return NoContent();
+            try
+            {
+                await productRepository.RemoveTagFromProduct(productId, tagId);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
         }
 
-        // DELETE: api/product/{productId}/tags
         [HttpDelete("{productId}/tags")]
+        [Authorize(Policy = Policies.CanDelete)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> ClearTags(Guid productId)
         {
-            await productRepository.ClearProductTags(productId);
-            return NoContent();
+            try
+            {
+                await productRepository.ClearProductTags(productId);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
         }
     }
 }
