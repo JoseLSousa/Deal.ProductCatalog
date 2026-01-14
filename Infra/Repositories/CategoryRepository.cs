@@ -8,7 +8,7 @@ namespace Infra.Repositories
 {
     public class CategoryRepository(AppDbContext appDbContext) : ICategoryRepository
     {
-        public async Task CreateCategory(CategoryDto categoryDto)
+        public async Task CreateCategory(RequestCategoryDto categoryDto)
         {
             await appDbContext.Categories.AddAsync(
                 new Category(categoryDto.Name));
@@ -25,36 +25,36 @@ namespace Infra.Repositories
             await appDbContext.SaveChangesAsync();
         }
 
-        public async Task<CategoryDto?> GetCategoryById(Guid id)
+        public async Task<ResponseCategoryDto?> GetCategoryById(Guid id)
         {
             return await appDbContext.Categories
                 .AsNoTracking()
                 .Where(c => c.CategoryId == id)
-                .Select(c => new CategoryDto(c.Name))
+                .Select(c => new ResponseCategoryDto(c.CategoryId, c.Name))
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<List<CategoryDto>> ListAllCategories(bool includeDeleted)
+        public async Task<List<ResponseCategoryDto>> ListAllCategories(bool includeDeleted)
         {
             var query = appDbContext.Categories.AsNoTracking();
             if (!includeDeleted)
                 query = query.Where(c => c.DeletedAt == null);
 
             return await query
-                .Select(c => new CategoryDto(c.Name))
+                .Select(c => new ResponseCategoryDto(c.CategoryId, c.Name))
                 .ToListAsync();
         }
 
-        public async Task<List<CategoryDto>> GetDeletedCategories()
+        public async Task<List<ResponseCategoryDto>> GetDeletedCategories()
         {
             return await appDbContext.Categories
                 .AsNoTracking()
                 .Where(c => c.DeletedAt != null)
-                .Select(c => new CategoryDto(c.Name))
+                .Select(c => new ResponseCategoryDto(c.CategoryId, c.Name))
                 .ToListAsync();
         }
 
-        public async Task UpdateCategory(Guid id, CategoryDto categoryDto)
+        public async Task UpdateCategory(Guid id, RequestCategoryDto categoryDto)
         {
             var categoryExists = await appDbContext
                 .Categories.FirstOrDefaultAsync(c => c.CategoryId == id)

@@ -1,5 +1,8 @@
 ﻿using Domain.Entities;
 using Microsoft.Extensions.Configuration;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 
 namespace Infra.NoSql
@@ -10,6 +13,8 @@ namespace Infra.NoSql
 
         public AuditDbContext(IConfiguration config)
         {
+            BsonSerializer.RegisterSerializer(
+                new GuidSerializer(GuidRepresentation.Standard));
             var client = new MongoClient(
                 config["MongoAuditSettings:ConnectionString"]);
             var database = client.GetDatabase(
