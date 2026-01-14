@@ -1,6 +1,8 @@
-﻿namespace Infra.Identity
+﻿using Microsoft.AspNetCore.Identity;
+
+namespace Infra.Identity
 {
-    public class ApplicationUser
+    public class ApplicationUser : IdentityUser<Guid>
     {
     }
 }
