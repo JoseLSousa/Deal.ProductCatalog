@@ -5,13 +5,13 @@ namespace Application.Interfaces
     public interface ICategoryRepository
     {
         // Consultas
-        Task<List<CategoryDto>> ListAllCategories(bool includeDeleted = false);
-        Task<CategoryDto?> GetCategoryById(Guid id);
-        Task<List<CategoryDto>> GetDeletedCategories();
+        Task<List<ResponseCategoryDto>> ListAllCategories(bool includeDeleted = false);
+        Task<ResponseCategoryDto?> GetCategoryById(Guid id);
+        Task<List<ResponseCategoryDto>> GetDeletedCategories();
 
         // Comandos básicos
-        Task CreateCategory(CategoryDto categoryDto);
-        Task UpdateCategory(Guid id, CategoryDto categoryDto);
+        Task CreateCategory(RequestCategoryDto categoryDto);
+        Task UpdateCategory(Guid id, RequestCategoryDto categoryDto);
 
         // Soft delete
         Task DeleteCategory(Guid id);
