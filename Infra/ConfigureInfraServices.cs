@@ -20,6 +20,8 @@ namespace Infra
             services.AddSingleton<AuditDbContext>();
             services.AddScoped<IAuditLogService, AuditLogService>();
             services.AddScoped<IProductRepository, ProductRepository>();
+            services.AddScoped<ICategoryRepository, CategoryRepository>();
+            //services.AddScoped<ITagRepository, TagRe>
 
             return services;
         }
