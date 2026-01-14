@@ -1,4 +1,6 @@
-﻿namespace Application.DTOs
+﻿using Domain.Enums;
+
+namespace Application.DTOs
 {
-    public record LogDto(string Action, string UserId, object Payload);
+    public record LogDto(LogAction Action, string UserId, object Payload);
 }
