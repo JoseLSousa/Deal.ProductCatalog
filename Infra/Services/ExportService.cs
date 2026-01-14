@@ -23,7 +23,7 @@ namespace Infra.Services
             var activeProducts = await _context.Products
                 .Include(p => p.Category)
                 .Include(p => p.Tags)
-                .Where(p => p.Active && !p.IsDeleted)
+                .Where(p => p.Active && p.DeletedAt == null)
                 .OrderBy(p => p.Name)
                 .ToListAsync();
 
