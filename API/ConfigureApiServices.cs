@@ -37,7 +37,7 @@ namespace API
                     Description = "API REST para gerenciamento de catálogo de produtos com JWT, MongoDB e PostgreSQL",
                     Contact = new OpenApiContact
                     {
-                        Name = "José Luiz Sousa",
+                        Name = "José Lucas Sousa Ferreira",
                         Url = new Uri("https://github.com/JoseLSousa")
                     }
                 });
@@ -97,23 +97,17 @@ namespace API
                 };
             });
 
-            services.AddAuthorization(opt =>
-            {
-                opt.AddPolicy(Policies.RequireAdminRole, policy =>
+            services.AddAuthorizationBuilder()
+                .AddPolicy(Policies.RequireAdminRole, policy =>
+                    policy.RequireRole(Roles.Admin))
+                .AddPolicy(Policies.RequireEditorRole, policy =>
+                    policy.RequireRole(Roles.Editor))
+                .AddPolicy(Policies.RequireViewerRole, policy =>
+                    policy.RequireRole(Roles.Viewer))
+                .AddPolicy(Policies.CanWrite, policy =>
+                    policy.RequireRole(Roles.Admin, Roles.Editor))
+                .AddPolicy(Policies.CanDelete, policy =>
                     policy.RequireRole(Roles.Admin));
-
-                opt.AddPolicy(Policies.RequireEditorRole, policy =>
-                    policy.RequireRole(Roles.Editor));
-
-                opt.AddPolicy(Policies.RequireViewerRole, policy =>
-                    policy.RequireRole(Roles.Viewer));
-
-                opt.AddPolicy(Policies.CanWrite, policy =>
-                    policy.RequireRole(Roles.Admin, Roles.Editor));
-
-                opt.AddPolicy(Policies.CanDelete, policy =>
-                    policy.RequireRole(Roles.Admin));
-            });
 
             return services;
         }
