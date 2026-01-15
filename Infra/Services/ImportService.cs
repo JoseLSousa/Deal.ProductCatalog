@@ -97,7 +97,7 @@ namespace Infra.Services
                 .AnyAsync(p => 
                     p.Name.ToLower() == externalProduct.Title.ToLower() && 
                     p.CategoryId == category.CategoryId &&
-                    !p.IsDeleted);
+                    p.DeletedAt == null);
 
             if (isDuplicate)
             {
