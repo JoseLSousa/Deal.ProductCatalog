@@ -8,7 +8,7 @@ API REST para gerenciamento de catálogo de produtos com autenticação JWT, MongoD
 - .NET 8 SDK
 - PostgreSQL 14+
 - MongoDB 5+
-- Docker (opcional)
+- Docker
 
 ### Instalação Local
 
