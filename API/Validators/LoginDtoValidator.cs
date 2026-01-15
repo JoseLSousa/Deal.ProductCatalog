@@ -7,8 +7,8 @@ namespace API.Validators
     {
         public LoginDtoValidator()
         {
-            RuleFor(x => x.Username)
-                .NotEmpty().WithMessage("O nome de usuário é obrigatório.");
+            RuleFor(x => x.Email)
+                .NotEmpty().WithMessage("O Email é obrigatório.");
 
             RuleFor(x => x.Password)
                 .NotEmpty().WithMessage("A senha é obrigatória.");

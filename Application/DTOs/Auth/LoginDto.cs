@@ -1,6 +1,6 @@
 namespace Application.DTOs.Auth;
 
 public record LoginDto(
-    string Username,
+    string Email,
     string Password
 );

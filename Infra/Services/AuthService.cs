@@ -25,7 +25,7 @@ public class AuthService(
         }
 
         // Verificar se o usuário já existe
-        var existingUser = await userManager.FindByNameAsync(registerDto.Username);
+        var existingUser = await userManager.FindByEmailAsync(registerDto.Email);
         if (existingUser != null)
         {
             throw new InvalidOperationException("Nome de usuário já existe.");
@@ -40,7 +40,7 @@ public class AuthService(
         // Criar usuário
         var user = new ApplicationUser
         {
-            UserName = registerDto.Username,
+            UserName = registerDto.Email,
             Email = registerDto.Email,
             EmailConfirmed = true // Para simplificar, confirmando automaticamente
         };
@@ -60,7 +60,7 @@ public class AuthService(
 
     public async Task<AuthResponseDto> LoginAsync(LoginDto loginDto)
     {
-        var user = await userManager.FindByNameAsync(loginDto.Username) ??
+        var user = await userManager.FindByEmailAsync(loginDto.Email) ??
             throw new UnauthorizedAccessException("Credenciais inválidas.");
 
         var isPasswordValid = await userManager.CheckPasswordAsync(user, loginDto.Password);
@@ -77,7 +77,6 @@ public class AuthService(
 
         return new AuthResponseDto(
             Token: Token,
-            Username: user.UserName!,
             Email: user.Email!,
             Role: primaryRole,
             Expiration: Expiration

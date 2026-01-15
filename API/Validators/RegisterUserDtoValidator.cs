@@ -7,10 +7,6 @@ namespace API.Validators
     {
         public RegisterUserDtoValidator()
         {
-            RuleFor(x => x.Username)
-                .NotEmpty().WithMessage("O nome de usuário é obrigatório.")
-                .MinimumLength(3).WithMessage("O nome de usuário deve ter no mínimo 3 caracteres.")
-                .MaximumLength(50).WithMessage("O nome de usuário não pode ter mais de 50 caracteres.");
 
             RuleFor(x => x.Email)
                 .NotEmpty().WithMessage("O email é obrigatório.")
