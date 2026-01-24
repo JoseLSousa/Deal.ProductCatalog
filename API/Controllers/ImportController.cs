@@ -1,4 +1,3 @@
-using Application.DTOs.Import;
 using Application.Interfaces;
 using Domain.Constants;
 using Domain.Enums;
@@ -28,7 +27,7 @@ namespace API.Controllers
         {
             try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                     ?? throw new UnauthorizedAccessException("Usuário não autenticado.");
 
                 var result = await _importService.ImportFromExternalApiAsync(userId);

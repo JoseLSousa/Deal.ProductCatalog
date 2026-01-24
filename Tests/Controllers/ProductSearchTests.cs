@@ -1,6 +1,5 @@
 using API.Controllers;
 using Application.DTOs.Search;
-using Application.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;

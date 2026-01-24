@@ -1,6 +1,5 @@
 using Infra.Data;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using MongoDB.Driver;
 
 namespace API.HealthChecks
 {
@@ -14,13 +13,13 @@ namespace API.HealthChecks
         }
 
         public async Task<HealthCheckResult> CheckHealthAsync(
-            HealthCheckContext context, 
+            HealthCheckContext context,
             CancellationToken cancellationToken = default)
         {
             try
             {
                 var canConnect = await _context.Database.CanConnectAsync(cancellationToken);
-                
+
                 if (canConnect)
                 {
                     return HealthCheckResult.Healthy("PostgreSQL está funcionando.");
@@ -31,7 +30,7 @@ namespace API.HealthChecks
             catch (Exception ex)
             {
                 return HealthCheckResult.Unhealthy(
-                    "Erro ao verificar saúde do PostgreSQL.", 
+                    "Erro ao verificar saúde do PostgreSQL.",
                     ex);
             }
         }

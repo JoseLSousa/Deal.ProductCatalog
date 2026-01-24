@@ -1,8 +1,9 @@
 ﻿using Application.Interfaces;
+using Domain.Abstractions;
 using Infra.Data;
+using Infra.Data.Repositories;
 using Infra.Identity;
 using Infra.NoSql;
-using Infra.Repositories;
 using Infra.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -21,10 +22,13 @@ namespace Infra
             });
 
             services.AddSingleton<AuditDbContext>();
-            services.AddScoped<IAuditLogService, AuditLogService>();
+
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IProductRepository, ProductRepository>();
-            services.AddScoped<ICategoryRepository, CategoryRepository>();
-            services.AddScoped<ITagRepository, TagRepository>();
+            //services.AddScoped<IAuditLogService, AuditLogService>();
+            //services.AddScoped<IProductRepository, ProductRepository>();
+            //services.AddScoped<ICategoryRepository, CategoryRepository>();
+            //services.AddScoped<ITagRepository, TagRepository>();
 
             // Registrar serviços de autenticação
             services.AddScoped<IAuthService, AuthService>();

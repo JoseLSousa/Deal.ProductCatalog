@@ -1,9 +1,9 @@
-using System.Text;
-using System.Text.Json;
 using Application.DTOs.Export;
 using Application.Interfaces;
 using Infra.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
+using System.Text.Json;
 
 namespace Infra.Services
 {
@@ -24,7 +24,7 @@ namespace Infra.Services
             var totalProducts = await _context.Products.CountAsync();
             var activeCount = await _context.Products.Where(p => p.Active).CountAsync();
             var notDeletedCount = await _context.Products.Where(p => p.DeletedAt == null).CountAsync();
-            
+
             Console.WriteLine($"[DEBUG] Total produtos: {totalProducts}, Ativos: {activeCount}, Não deletados: {notDeletedCount}");
 
             var activeProducts = await _context.Products
@@ -44,7 +44,7 @@ namespace Infra.Services
                 Description = p.Description,
                 Category = p.Category?.Name ?? "Sem categoria",
                 Price = p.Price,
-                Tags = p.Tags != null && p.Tags.Any() 
+                Tags = p.Tags != null && p.Tags.Any()
                     ? string.Join(", ", p.Tags.Where(t => t.DeletedAt == null).Select(t => t.Name))
                     : string.Empty,
                 CreatedAt = p.CreatedAt
@@ -54,7 +54,7 @@ namespace Infra.Services
             {
                 report.Statistics.TotalActiveProducts = activeProducts.Count;
                 report.Statistics.AveragePrice = activeProducts.Average(p => p.Price);
-                
+
                 report.Statistics.ProductsByCategory = activeProducts
                     .GroupBy(p => p.Category?.Name ?? "Sem categoria")
                     .ToDictionary(g => g.Key, g => g.Count());
@@ -91,7 +91,7 @@ namespace Infra.Services
             csv.AppendLine($"Preço Médio,{report.Statistics.AveragePrice:F2}");
             csv.AppendLine();
             csv.AppendLine("=== PRODUTOS POR CATEGORIA ===");
-            
+
             foreach (var category in report.Statistics.ProductsByCategory)
             {
                 csv.AppendLine($"{category.Key},{category.Value}");
@@ -100,7 +100,7 @@ namespace Infra.Services
             csv.AppendLine();
             csv.AppendLine("=== TOP 3 MAIS CAROS ===");
             csv.AppendLine("Nome,Preço");
-            
+
             foreach (var top in report.Statistics.Top3MostExpensive)
             {
                 csv.AppendLine($"\"{top.Name}\",{top.Price:F2}");
@@ -112,7 +112,7 @@ namespace Infra.Services
         public async Task<string> GenerateJsonReportAsync()
         {
             var report = await GetReportDataAsync();
-            
+
             var options = new JsonSerializerOptions
             {
                 WriteIndented = true,

@@ -27,7 +27,7 @@ namespace API.Controllers
         {
             try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                     ?? throw new UnauthorizedAccessException("Usuário não autenticado.");
 
                 var csvBytes = await _exportService.GenerateCsvReportAsync();
@@ -60,7 +60,7 @@ namespace API.Controllers
         {
             try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                     ?? throw new UnauthorizedAccessException("Usuário não autenticado.");
 
                 var json = await _exportService.GenerateJsonReportAsync();

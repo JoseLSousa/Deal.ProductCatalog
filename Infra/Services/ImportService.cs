@@ -1,10 +1,10 @@
-using System.Text.Json;
 using Application.DTOs.Import;
 using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
 using Infra.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace Infra.Services
 {
@@ -16,7 +16,7 @@ namespace Infra.Services
         private const string ExternalApiUrl = "https://fakestoreapi.com/products";
 
         public ImportService(
-            AppDbContext context, 
+            AppDbContext context,
             IAuditLogService auditLogService,
             HttpClient httpClient)
         {
@@ -33,7 +33,7 @@ namespace Infra.Services
             {
                 var response = await _httpClient.GetStringAsync(ExternalApiUrl);
                 var externalProducts = JsonSerializer.Deserialize<List<ExternalProductDto>>(
-                    response, 
+                    response,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
                 if (externalProducts == null || !externalProducts.Any())
@@ -78,11 +78,11 @@ namespace Infra.Services
         }
 
         private async Task ProcessExternalProductAsync(
-            ExternalProductDto externalProduct, 
+            ExternalProductDto externalProduct,
             ImportResultDto result)
         {
             var categoryName = NormalizeCategoryName(externalProduct.Category);
-            
+
             var category = await _context.Categories
                 .FirstOrDefaultAsync(c => c.Name.ToLower() == categoryName.ToLower());
 
@@ -94,8 +94,8 @@ namespace Infra.Services
             }
 
             var isDuplicate = await _context.Products
-                .AnyAsync(p => 
-                    p.Name.ToLower() == externalProduct.Title.ToLower() && 
+                .AnyAsync(p =>
+                    p.Name.ToLower() == externalProduct.Title.ToLower() &&
                     p.CategoryId == category.CategoryId &&
                     p.DeletedAt == null);
 

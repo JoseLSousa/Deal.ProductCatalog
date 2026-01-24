@@ -2,7 +2,6 @@ using Application.DTOs;
 using Domain.Entities;
 using FluentAssertions;
 using Infra.Data;
-using Infra.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace Tests.Repositories

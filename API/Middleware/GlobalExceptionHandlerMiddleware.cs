@@ -9,7 +9,7 @@ namespace API.Middleware
         private readonly ILogger<GlobalExceptionHandlerMiddleware> _logger;
 
         public GlobalExceptionHandlerMiddleware(
-            RequestDelegate next, 
+            RequestDelegate next,
             ILogger<GlobalExceptionHandlerMiddleware> logger)
         {
             _next = next;

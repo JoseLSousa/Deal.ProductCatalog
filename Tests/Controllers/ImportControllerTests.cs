@@ -1,7 +1,6 @@
 using API.Controllers;
 using Application.DTOs.Import;
 using Application.Interfaces;
-using Domain.Enums;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -63,7 +62,7 @@ namespace Tests.Controllers
             result.Should().BeOfType<OkObjectResult>();
             var okResult = result as OkObjectResult;
             okResult!.Value.Should().NotBeNull();
-            
+
             _mockImportService.Verify(s => s.ImportFromExternalApiAsync(It.IsAny<string>()), Times.Once);
             _mockAuditService.Verify(s => s.LogAsync(It.IsAny<Application.DTOs.LogDto>()), Times.Once);
         }

@@ -1,6 +1,5 @@
 using Application.DTOs;
 using Application.DTOs.Search;
-using Application.Interfaces;
 using Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -56,11 +55,11 @@ namespace API.Controllers
             try
             {
                 await productRepository.CreateProduct(productDto);
-                
+
                 // Em um cenário real, CreateProduct deveria retornar o ID do produto criado
                 // Por enquanto, retornamos 201 Created sem Location header
-                return StatusCode(StatusCodes.Status201Created, new 
-                { 
+                return StatusCode(StatusCodes.Status201Created, new
+                {
                     message = "Produto criado com sucesso.",
                     product = productDto
                 });

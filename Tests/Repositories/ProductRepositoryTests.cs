@@ -3,7 +3,6 @@ using Application.Interfaces;
 using Domain.Entities;
 using FluentAssertions;
 using Infra.Data;
-using Infra.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 

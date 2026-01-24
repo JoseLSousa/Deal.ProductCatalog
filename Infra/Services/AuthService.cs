@@ -115,7 +115,7 @@ public class AuthService(
     {
         var user = await userManager.FindByIdAsync(userId.ToString()) ??
             throw new KeyNotFoundException("Usuário não encontrado.");
-        
+
         var roles = await userManager.GetRolesAsync(user);
 
         return new UserInfoDto

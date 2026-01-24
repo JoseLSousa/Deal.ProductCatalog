@@ -14,7 +14,7 @@ namespace API.HealthChecks
         }
 
         public async Task<HealthCheckResult> CheckHealthAsync(
-            HealthCheckContext context, 
+            HealthCheckContext context,
             CancellationToken cancellationToken = default)
         {
             try
@@ -28,7 +28,7 @@ namespace API.HealthChecks
             catch (Exception ex)
             {
                 return HealthCheckResult.Unhealthy(
-                    "Erro ao verificar saúde do MongoDB.", 
+                    "Erro ao verificar saúde do MongoDB.",
                     ex);
             }
         }

@@ -37,7 +37,7 @@ namespace Tests.Controllers
         {
             // Arrange
             var csvBytes = System.Text.Encoding.UTF8.GetBytes("Nome,Descrição,Preço\nProduto 1,Descrição 1,10.00");
-            
+
             _mockExportService.Setup(s => s.GenerateCsvReportAsync())
                 .ReturnsAsync(csvBytes);
 
@@ -61,7 +61,7 @@ namespace Tests.Controllers
         {
             // Arrange
             var json = "{\"products\": []}";
-            
+
             _mockExportService.Setup(s => s.GenerateJsonReportAsync())
                 .ReturnsAsync(json);
 
