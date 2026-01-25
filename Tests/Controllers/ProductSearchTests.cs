@@ -1,5 +1,6 @@
 using API.Controllers;
-using Application.DTOs.Search;
+using Application.Interfaces;
+using Domain.Entities;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -8,125 +9,56 @@ namespace Tests.Controllers
 {
     public class ProductSearchTests
     {
-        private readonly Mock<IProductRepository> _mockRepository;
+        private readonly Mock<IProductApplicationService> _mockService;
         private readonly ProductController _controller;
 
         public ProductSearchTests()
         {
-            _mockRepository = new Mock<IProductRepository>();
-            _controller = new ProductController(_mockRepository.Object);
+            _mockService = new Mock<IProductApplicationService>();
+            _controller = new ProductController(_mockService.Object);
         }
 
         [Fact]
         public async Task Search_WithValidParameters_ShouldReturnOkWithResults()
         {
             // Arrange
-            var searchDto = new ProductSearchDto
+            const string term = "notebook";
+            var searchResult = new List<Product>
             {
-                Term = "notebook",
-                MinPrice = 1000,
-                MaxPrice = 5000,
-                Page = 1,
-                PageSize = 10
+                new("Notebook Dell", "Descrição", 3500.00m, true, Guid.NewGuid()) { ProductId = Guid.NewGuid() }
             };
 
-            var searchResult = new ProductSearchResultDto
-            {
-                Items = new List<Application.DTOs.ResponseProductDto>
-                {
-                    new(Guid.NewGuid(), "Notebook Dell", "Descrição", 3500.00m, true, Guid.NewGuid())
-                },
-                TotalItems = 1,
-                TotalPages = 1,
-                CurrentPage = 1,
-                PageSize = 10,
-                AveragePrice = 3500.00m
-            };
-
-            _mockRepository.Setup(r => r.SearchProductsAsync(searchDto))
-                .ReturnsAsync(searchResult);
+            _mockService.Setup(s => s.SearchProductsByNameAsync(term))
+                        .ReturnsAsync(searchResult);
 
             // Act
-            var result = await _controller.Search(searchDto);
+            var result = await _controller.SearchByName(term);
 
             // Assert
             result.Should().BeOfType<OkObjectResult>();
             var okResult = result as OkObjectResult;
             okResult!.Value.Should().BeEquivalentTo(searchResult);
-            _mockRepository.Verify(r => r.SearchProductsAsync(searchDto), Times.Once);
+            _mockService.Verify(s => s.SearchProductsByNameAsync(term), Times.Once);
         }
 
         [Fact]
         public async Task Search_WithEmptyResults_ShouldReturnOkWithEmptyList()
         {
             // Arrange
-            var searchDto = new ProductSearchDto
-            {
-                Term = "produto_inexistente",
-                Page = 1,
-                PageSize = 10
-            };
+            const string term = "produto_inexistente";
+            var searchResult = new List<Product>();
 
-            var searchResult = new ProductSearchResultDto
-            {
-                Items = new List<Application.DTOs.ResponseProductDto>(),
-                TotalItems = 0,
-                TotalPages = 0,
-                CurrentPage = 1,
-                PageSize = 10,
-                AveragePrice = 0
-            };
-
-            _mockRepository.Setup(r => r.SearchProductsAsync(searchDto))
-                .ReturnsAsync(searchResult);
+            _mockService.Setup(s => s.SearchProductsByNameAsync(term))
+                        .ReturnsAsync(searchResult);
 
             // Act
-            var result = await _controller.Search(searchDto);
+            var result = await _controller.SearchByName(term);
 
             // Assert
             result.Should().BeOfType<OkObjectResult>();
             var okResult = result as OkObjectResult;
-            var resultData = okResult!.Value as ProductSearchResultDto;
-            resultData!.Items.Should().BeEmpty();
-            resultData.TotalItems.Should().Be(0);
-        }
-
-        [Fact]
-        public async Task Search_WithPagination_ShouldReturnCorrectPage()
-        {
-            // Arrange
-            var searchDto = new ProductSearchDto
-            {
-                Page = 2,
-                PageSize = 5
-            };
-
-            var searchResult = new ProductSearchResultDto
-            {
-                Items = new List<Application.DTOs.ResponseProductDto>
-                {
-                    new(Guid.NewGuid(), "Produto 6", "Descrição", 10.00m, true, Guid.NewGuid()),
-                    new(Guid.NewGuid(), "Produto 7", "Descrição", 20.00m, true, Guid.NewGuid())
-                },
-                TotalItems = 12,
-                TotalPages = 3,
-                CurrentPage = 2,
-                PageSize = 5,
-                AveragePrice = 15.00m
-            };
-
-            _mockRepository.Setup(r => r.SearchProductsAsync(searchDto))
-                .ReturnsAsync(searchResult);
-
-            // Act
-            var result = await _controller.Search(searchDto);
-
-            // Assert
-            result.Should().BeOfType<OkObjectResult>();
-            var okResult = result as OkObjectResult;
-            var resultData = okResult!.Value as ProductSearchResultDto;
-            resultData!.CurrentPage.Should().Be(2);
-            resultData.TotalPages.Should().Be(3);
+            var resultData = okResult!.Value as IReadOnlyCollection<Product>;
+            resultData!.Should().BeEmpty();
         }
     }
 }

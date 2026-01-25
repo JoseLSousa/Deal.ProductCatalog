@@ -1,18 +1,23 @@
-﻿using Application.Interfaces;
-using Domain.Abstractions;
+﻿using Domain.Abstractions;
 using Infra.Data.Repositories;
 
 namespace Infra.Data
 {
-    public class UnitOfWork(AppDbContext context,
-        IAuditLogService auditLogService
+    public class UnitOfWork(AppDbContext context
         ) : IUnitOfWork
     {
         private IProductRepository? _productRepository;
+        private ITagRepository? _tagRepository;
+        private ICategoryRepository? _categoryRepository;
 
         public IProductRepository Products =>
             _productRepository ??= new ProductRepository(context);
 
+        public ITagRepository Tags =>
+            _tagRepository ??= new TagRepository(context);
+
+        public ICategoryRepository Categories =>
+            _categoryRepository ??= new CategoryRepository(context);
 
         public async Task<int> CommitAsync()
         {

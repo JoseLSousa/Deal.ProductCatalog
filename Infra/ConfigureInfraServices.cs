@@ -25,10 +25,10 @@ namespace Infra
 
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IProductRepository, ProductRepository>();
-            //services.AddScoped<IAuditLogService, AuditLogService>();
-            //services.AddScoped<IProductRepository, ProductRepository>();
-            //services.AddScoped<ICategoryRepository, CategoryRepository>();
-            //services.AddScoped<ITagRepository, TagRepository>();
+            services.AddScoped<IAuditLogService, AuditLogService>();
+            services.AddScoped<IProductRepository, ProductRepository>();
+            services.AddScoped<ICategoryRepository, CategoryRepository>();
+            services.AddScoped<ITagRepository, TagRepository>();
 
             // Registrar serviços de autenticação
             services.AddScoped<IAuthService, AuthService>();

@@ -1,5 +1,5 @@
 using Application.DTOs;
-using Application.DTOs.Search;
+using Application.Interfaces;
 using Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,24 +9,60 @@ namespace API.Controllers
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
-    public class ProductController(IProductRepository productRepository) : ControllerBase
+    public class ProductController(IProductApplicationService productService) : ControllerBase
     {
         [HttpGet]
         [Authorize(Roles = $"{Roles.Admin},{Roles.Editor},{Roles.Viewer}")]
-        public async Task<IActionResult> GetAll([FromQuery] bool includeDeleted = false)
+        public async Task<IActionResult> GetAll()
         {
-            var products = await productRepository.ListAllProducts(includeDeleted);
+            var products = await productService.GetActiveProductsAsync();
             return Ok(products);
         }
 
         [HttpGet("search")]
         [Authorize(Roles = $"{Roles.Admin},{Roles.Editor},{Roles.Viewer}")]
-        public async Task<IActionResult> Search([FromQuery] ProductSearchDto searchDto)
+        public async Task<IActionResult> SearchByName([FromQuery] string searchTerm)
         {
             try
             {
-                var result = await productRepository.SearchProductsAsync(searchDto);
-                return Ok(result);
+                if (string.IsNullOrWhiteSpace(searchTerm))
+                    return BadRequest(new { message = "Termo de busca é obrigatório." });
+
+                var products = await productService.SearchProductsByNameAsync(searchTerm);
+                return Ok(products);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Erro ao buscar produtos.", detail = ex.Message });
+            }
+        }
+
+        [HttpGet("price-range")]
+        [Authorize(Roles = $"{Roles.Admin},{Roles.Editor},{Roles.Viewer}")]
+        public async Task<IActionResult> GetByPriceRange([FromQuery] decimal minPrice, [FromQuery] decimal maxPrice)
+        {
+            try
+            {
+                if (minPrice < 0 || maxPrice < 0 || minPrice > maxPrice)
+                    return BadRequest(new { message = "Intervalo de preço inválido." });
+
+                var products = await productService.GetProductsByPriceRangeAsync(minPrice, maxPrice);
+                return Ok(products);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Erro ao buscar produtos.", detail = ex.Message });
+            }
+        }
+
+        [HttpGet("category/{categoryId}")]
+        [Authorize(Roles = $"{Roles.Admin},{Roles.Editor},{Roles.Viewer}")]
+        public async Task<IActionResult> GetByCategory(Guid categoryId)
+        {
+            try
+            {
+                var products = await productService.GetProductsByCategoryAsync(categoryId);
+                return Ok(products);
             }
             catch (Exception ex)
             {
@@ -38,7 +74,40 @@ namespace API.Controllers
         [Authorize(Roles = $"{Roles.Admin},{Roles.Editor},{Roles.Viewer}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var product = await productRepository.GetProductById(id);
+            var product = await productService.GetProductByIdAsync(id);
+            if (product == null)
+                return NotFound(new { message = "Produto não encontrado." });
+
+            return Ok(product);
+        }
+
+        [HttpGet("{id}/with-category")]
+        [Authorize(Roles = $"{Roles.Admin},{Roles.Editor},{Roles.Viewer}")]
+        public async Task<IActionResult> GetWithCategory(Guid id)
+        {
+            var product = await productService.GetProductWithCategoryAsync(id);
+            if (product == null)
+                return NotFound(new { message = "Produto não encontrado." });
+
+            return Ok(product);
+        }
+
+        [HttpGet("{id}/with-tags")]
+        [Authorize(Roles = $"{Roles.Admin},{Roles.Editor},{Roles.Viewer}")]
+        public async Task<IActionResult> GetWithTags(Guid id)
+        {
+            var product = await productService.GetProductWithTagsAsync(id);
+            if (product == null)
+                return NotFound(new { message = "Produto não encontrado." });
+
+            return Ok(product);
+        }
+
+        [HttpGet("{id}/complete")]
+        [Authorize(Roles = $"{Roles.Admin},{Roles.Editor},{Roles.Viewer}")]
+        public async Task<IActionResult> GetComplete(Guid id)
+        {
+            var product = await productService.GetProductWithCategoryAndTagsAsync(id);
             if (product == null)
                 return NotFound(new { message = "Produto não encontrado." });
 
@@ -49,28 +118,31 @@ namespace API.Controllers
         [Authorize(Policy = Policies.CanWrite)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Create([FromBody] RequestProductDto productDto)
         {
             try
             {
-                await productRepository.CreateProduct(productDto);
+                var productId = await productService.CreateProductAsync(
+                    productDto.Name,
+                    productDto.Description,
+                    productDto.Price,
+                    productDto.Active,
+                    productDto.CategoryId
+                );
 
-                // Em um cenário real, CreateProduct deveria retornar o ID do produto criado
-                // Por enquanto, retornamos 201 Created sem Location header
-                return StatusCode(StatusCodes.Status201Created, new
+                return CreatedAtRoute(nameof(GetById), new { id = productId }, new
                 {
                     message = "Produto criado com sucesso.",
-                    product = productDto
+                    productId
                 });
             }
             catch (ArgumentException ex)
             {
                 return BadRequest(new { message = ex.Message });
             }
-            catch (KeyNotFoundException ex)
+            catch (InvalidOperationException ex)
             {
-                return NotFound(new { message = ex.Message });
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -78,20 +150,28 @@ namespace API.Controllers
             }
         }
 
-        [HttpPut("{id}")]
+        [HttpPut("{id}/name")]
         [Authorize(Policy = Policies.CanWrite)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> Update(Guid id, [FromBody] RequestProductDto productDto)
+        public async Task<IActionResult> UpdateName(Guid id, [FromBody] string newName)
         {
             try
             {
-                await productRepository.UpdateProduct(id, productDto);
+                await productService.UpdateProductNameAsync(id, newName);
                 return NoContent();
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -103,12 +183,20 @@ namespace API.Controllers
         {
             try
             {
-                await productRepository.UpdateProductPrice(id, newPrice);
+                await productService.UpdateProductPriceAsync(id, newPrice);
                 return NoContent();
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -120,12 +208,20 @@ namespace API.Controllers
         {
             try
             {
-                await productRepository.UpdateProductDescription(id, newDescription);
+                await productService.UpdateProductDescriptionAsync(id, newDescription);
                 return NoContent();
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -137,12 +233,16 @@ namespace API.Controllers
         {
             try
             {
-                await productRepository.DeleteProduct(id);
+                await productService.DeleteProductAsync(id);
                 return NoContent();
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -154,12 +254,16 @@ namespace API.Controllers
         {
             try
             {
-                await productRepository.RestoreProduct(id);
+                await productService.RestoreProductAsync(id);
                 return NoContent();
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -171,12 +275,16 @@ namespace API.Controllers
         {
             try
             {
-                await productRepository.ActivateProduct(id);
+                await productService.ActivateProductAsync(id);
                 return NoContent();
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -188,12 +296,16 @@ namespace API.Controllers
         {
             try
             {
-                await productRepository.DeactivateProduct(id);
+                await productService.DeactivateProductAsync(id);
                 return NoContent();
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -205,12 +317,20 @@ namespace API.Controllers
         {
             try
             {
-                await productRepository.ChangeProductCategory(productId, newCategoryId);
+                await productService.ChangeCategoryAsync(productId, newCategoryId);
                 return NoContent();
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -222,12 +342,16 @@ namespace API.Controllers
         {
             try
             {
-                await productRepository.AddTagToProduct(productId, tagId);
+                await productService.AddTagToProductAsync(productId, tagId);
                 return NoContent();
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -239,12 +363,16 @@ namespace API.Controllers
         {
             try
             {
-                await productRepository.RemoveTagFromProduct(productId, tagId);
+                await productService.RemoveTagFromProductAsync(productId, tagId);
                 return NoContent();
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -256,12 +384,16 @@ namespace API.Controllers
         {
             try
             {
-                await productRepository.ClearProductTags(productId);
+                await productService.ClearProductTagsAsync(productId);
                 return NoContent();
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
     }

@@ -1,7 +1,7 @@
-using Application.DTOs;
 using Domain.Entities;
 using FluentAssertions;
 using Infra.Data;
+using Infra.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace Tests.Repositories
@@ -22,23 +22,23 @@ namespace Tests.Repositories
         }
 
         [Fact]
-        public async Task CreateCategory_ShouldAddCategoryToDatabase()
+        public async Task AddAsync_ShouldAddCategoryToDatabase()
         {
             // Arrange
-            var categoryDto = new RequestCategoryDto("Categoria Teste");
+            var category = new Category("Categoria Teste");
 
             // Act
-            await _repository.CreateCategory(categoryDto);
+            await _repository.AddAsync(category);
             await _context.SaveChangesAsync();
 
             // Assert
-            var category = await _context.Categories.FirstOrDefaultAsync();
-            category.Should().NotBeNull();
-            category!.Name.Should().Be("Categoria Teste");
+            var saved = await _context.Categories.FirstOrDefaultAsync();
+            saved.Should().NotBeNull();
+            saved!.Name.Should().Be("Categoria Teste");
         }
 
         [Fact]
-        public async Task GetCategoryById_WhenCategoryExists_ShouldReturnCategory()
+        public async Task GetByIdAsync_WhenExists_ShouldReturnCategory()
         {
             // Arrange
             var category = new Category("Categoria Teste");
@@ -46,7 +46,7 @@ namespace Tests.Repositories
             await _context.SaveChangesAsync();
 
             // Act
-            var result = await _repository.GetCategoryById(category.CategoryId);
+            var result = await _repository.GetByIdAsync(category.CategoryId);
 
             // Assert
             result.Should().NotBeNull();
@@ -54,182 +54,119 @@ namespace Tests.Repositories
         }
 
         [Fact]
-        public async Task GetCategoryById_WhenCategoryNotExists_ShouldReturnNull()
+        public async Task GetByIdAsync_WhenNotExists_ShouldReturnNull()
         {
-            // Arrange
-            var nonExistentId = Guid.NewGuid();
-
             // Act
-            var result = await _repository.GetCategoryById(nonExistentId);
+            var result = await _repository.GetByIdAsync(Guid.NewGuid());
 
             // Assert
             result.Should().BeNull();
         }
 
         [Fact]
-        public async Task ListAllCategories_ShouldReturnAllNonDeletedCategories()
+        public async Task GetByNameAsync_ShouldReturnMatchingCategory()
         {
             // Arrange
-            var category1 = new Category("Categoria 1");
-            var category2 = new Category("Categoria 2");
-            var category3 = new Category("Categoria 3");
-            category3.Delete();
-
-            await _context.Categories.AddRangeAsync(category1, category2, category3);
+            var category = new Category("Categoria 1");
+            await _context.Categories.AddAsync(category);
             await _context.SaveChangesAsync();
 
             // Act
-            var result = await _repository.ListAllCategories(includeDeleted: false);
+            var result = await _repository.GetByNameAsync("Categoria 1");
 
             // Assert
-            result.Should().HaveCount(2);
-            result.Should().Contain(c => c.Name == "Categoria 1");
-            result.Should().Contain(c => c.Name == "Categoria 2");
+            result.Should().NotBeNull();
+            result!.CategoryId.Should().Be(category.CategoryId);
         }
 
         [Fact]
-        public async Task ListAllCategories_WithIncludeDeleted_ShouldReturnAllCategories()
+        public async Task GetActiveAsync_ShouldReturnOnlyNonDeleted()
         {
             // Arrange
-            var category1 = new Category("Categoria 1");
-            var category2 = new Category("Categoria 2");
-            category2.Delete();
-
-            await _context.Categories.AddRangeAsync(category1, category2);
+            var active = new Category("Ativa");
+            var deleted = new Category("Deletada");
+            deleted.Delete();
+            await _context.Categories.AddRangeAsync(active, deleted);
             await _context.SaveChangesAsync();
 
             // Act
-            var result = await _repository.ListAllCategories(includeDeleted: true);
-
-            // Assert
-            result.Should().HaveCount(2);
-        }
-
-        [Fact]
-        public async Task GetDeletedCategories_ShouldReturnOnlyDeletedCategories()
-        {
-            // Arrange
-            var category1 = new Category("Categoria 1");
-            var category2 = new Category("Categoria 2");
-            category2.Delete();
-
-            await _context.Categories.AddRangeAsync(category1, category2);
-            await _context.SaveChangesAsync();
-
-            // Act
-            var result = await _repository.GetDeletedCategories();
+            var result = await _repository.GetActiveAsync();
 
             // Assert
             result.Should().HaveCount(1);
-            result.First().Name.Should().Be("Categoria 2");
+            result.First().Name.Should().Be("Ativa");
         }
 
         [Fact]
-        public async Task UpdateCategory_ShouldUpdateCategoryName()
+        public async Task ExistsWithNameAsync_ShouldRespectExclusion()
         {
             // Arrange
-            var category = new Category("Categoria Original");
-            await _context.Categories.AddAsync(category);
+            var c1 = new Category("Duplicada");
+            await _context.Categories.AddAsync(c1);
             await _context.SaveChangesAsync();
 
-            var updateDto = new RequestCategoryDto("Categoria Atualizada");
-
-            // Act
-            await _repository.UpdateCategory(category.CategoryId, updateDto);
-
-            // Assert
-            var updatedCategory = await _context.Categories.FindAsync(category.CategoryId);
-            updatedCategory!.Name.Should().Be("Categoria Atualizada");
+            // Act & Assert
+            (await _repository.ExistsWithNameAsync("Duplicada")).Should().BeTrue();
+            (await _repository.ExistsWithNameAsync("Duplicada", c1.CategoryId)).Should().BeFalse();
         }
 
         [Fact]
-        public async Task UpdateCategory_WhenNotFound_ShouldThrowException()
-        {
-            // Arrange
-            var updateDto = new RequestCategoryDto("Categoria");
-
-            // Act
-            Func<Task> act = async () => await _repository.UpdateCategory(Guid.NewGuid(), updateDto);
-
-            // Assert
-            await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage("Category not found");
-        }
-
-        [Fact]
-        public async Task RestoreCategory_ShouldRestoreDeletedCategory()
+        public async Task GetWithProductsAsync_ShouldIncludeProducts()
         {
             // Arrange
             var category = new Category("Categoria");
-            category.Delete();
-            await _context.Categories.AddAsync(category);
-            await _context.SaveChangesAsync();
-
-            // Act
-            await _repository.RestoreCategory(category.CategoryId);
-
-            // Assert
-            var restoredCategory = await _context.Categories.FindAsync(category.CategoryId);
-            restoredCategory!.IsDeleted.Should().BeFalse();
-        }
-
-        [Fact]
-        public async Task RestoreCategory_WhenNotFound_ShouldThrowException()
-        {
-            // Act
-            Func<Task> act = async () => await _repository.RestoreCategory(Guid.NewGuid());
-
-            // Assert
-            await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage("Category not found");
-        }
-
-        [Fact]
-        public async Task AddProductToCategory_ShouldAddProduct()
-        {
-            // Arrange
-            var category = new Category("Categoria");
-            var product = new Product("Produto", "Descrição", 10.00m, true, category.CategoryId);
+            var product = new Product("Prod", "Desc", 10m, true, category.CategoryId);
             await _context.Categories.AddAsync(category);
             await _context.Products.AddAsync(product);
             await _context.SaveChangesAsync();
 
             // Act
-            await _repository.AddProductToCategory(category.CategoryId, product.ProductId);
+            var result = await _repository.GetWithProductsAsync(category.CategoryId);
 
             // Assert
-            var updatedCategory = await _context.Categories
-                .Include(c => c.Products)
-                .FirstAsync(c => c.CategoryId == category.CategoryId);
-            updatedCategory.Products.Should().Contain(product);
+            result.Should().NotBeNull();
+            result!.Products.Should().ContainSingle(p => p.ProductId == product.ProductId);
         }
 
         [Fact]
-        public async Task AddProductToCategory_WhenCategoryNotFound_ShouldThrowException()
+        public async Task GetWithActiveProductsAsync_ShouldReturnCategoriesHavingActiveProducts()
         {
             // Arrange
-            var product = new Product("Produto", "Descrição", 10.00m, true, Guid.NewGuid());
-            await _context.Products.AddAsync(product);
+            var catWithActive = new Category("Com ativo");
+            var activeProduct = new Product("Ativo", "Desc", 10m, true, catWithActive.CategoryId);
+            var catWithoutActive = new Category("Sem ativo");
+            var inactiveProduct = new Product("Inativo", "Desc", 5m, false, catWithoutActive.CategoryId);
+            await _context.Categories.AddRangeAsync(catWithActive, catWithoutActive);
+            await _context.Products.AddRangeAsync(activeProduct, inactiveProduct);
             await _context.SaveChangesAsync();
 
             // Act
-            Func<Task> act = async () => await _repository.AddProductToCategory(Guid.NewGuid(), product.ProductId);
+            var result = await _repository.GetWithActiveProductsAsync();
 
             // Assert
-            await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage("Category not found");
+            result.Should().ContainSingle(c => c.CategoryId == catWithActive.CategoryId);
+            result.Should().NotContain(c => c.CategoryId == catWithoutActive.CategoryId);
         }
 
         [Fact]
-        public async Task AddProductToCategory_WhenProductNotFound_ShouldThrowException()
+        public async Task HasActiveProductsAsync_ShouldReturnTrueOnlyWhenActiveProductsExist()
         {
             // Arrange
             var category = new Category("Categoria");
+            var active = new Product("Ativo", "Desc", 10m, true, category.CategoryId);
+            var inactive = new Product("Inativo", "Desc", 5m, false, category.CategoryId);
             await _context.Categories.AddAsync(category);
+            await _context.Products.AddRangeAsync(active, inactive);
             await _context.SaveChangesAsync();
 
-            // Act
-            Func<Task> act = async () => await _repository.AddProductToCategory(category.CategoryId, Guid.NewGuid());
+            // Act & Assert
+            (await _repository.HasActiveProductsAsync(category.CategoryId)).Should().BeTrue();
 
-            // Assert
-            await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage("Product not found");
+            // Soft-delete active product to make none active
+            active.Delete();
+            await _context.SaveChangesAsync();
+
+            (await _repository.HasActiveProductsAsync(category.CategoryId)).Should().BeFalse();
         }
 
         public void Dispose()

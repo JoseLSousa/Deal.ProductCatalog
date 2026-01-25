@@ -1,17 +1,14 @@
-using Application.DTOs;
-using Application.Interfaces;
 using Domain.Entities;
 using FluentAssertions;
 using Infra.Data;
+using Infra.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
-using Moq;
 
 namespace Tests.Repositories
 {
     public class ProductRepositoryTests : IDisposable
     {
         private readonly AppDbContext _context;
-        private readonly Mock<IAuditLogService> _mockAuditService;
         private readonly ProductRepository _repository;
 
         public ProductRepositoryTests()
@@ -21,51 +18,33 @@ namespace Tests.Repositories
                 .Options;
 
             _context = new AppDbContext(options);
-            _mockAuditService = new Mock<IAuditLogService>();
-            _repository = new ProductRepository(_context, _mockAuditService.Object);
+            _repository = new ProductRepository(_context);
         }
 
         [Fact]
-        public async Task CreateProduct_ShouldAddProductToDatabase()
+        public async Task AddAsync_ShouldAddProductToDatabase()
         {
             // Arrange
             var category = new Category("Categoria Teste");
             await _context.Categories.AddAsync(category);
             await _context.SaveChangesAsync();
-            _context.ChangeTracker.Clear();
 
-            var productDto = new RequestProductDto("Produto Teste", "Descrição", 10.00m, true, category.CategoryId);
+            var product = new Product("Produto Teste", "Descrição", 10.00m, true, category.CategoryId);
 
             // Act
-            await _repository.CreateProduct(productDto);
+            await _repository.AddAsync(product);
+            await _context.SaveChangesAsync();
 
             // Assert
-            _context.ChangeTracker.Clear();
-            var product = await _context.Products.FirstOrDefaultAsync();
-            product.Should().NotBeNull();
-            product!.Name.Should().Be("Produto Teste");
-            product.Description.Should().Be("Descrição");
-            product.Price.Should().Be(10.00m);
-            _mockAuditService.Verify(s => s.LogAsync(It.IsAny<LogDto>()), Times.Once);
+            var result = await _context.Products.FirstOrDefaultAsync();
+            result.Should().NotBeNull();
+            result!.Name.Should().Be("Produto Teste");
+            result.Description.Should().Be("Descrição");
+            result.Price.Should().Be(10.00m);
         }
 
         [Fact]
-        public async Task CreateProduct_WhenCategoryNotFound_ShouldThrowException()
-        {
-            // Arrange
-            var nonExistentCategoryId = Guid.NewGuid();
-            var productDto = new RequestProductDto("Produto Teste", "Descrição", 10.00m, true, nonExistentCategoryId);
-
-            // Act
-            Func<Task> act = async () => await _repository.CreateProduct(productDto);
-
-            // Assert
-            await act.Should().ThrowAsync<KeyNotFoundException>()
-                .WithMessage($"Categoria com id:{nonExistentCategoryId} não encontrada!");
-        }
-
-        [Fact]
-        public async Task GetProductById_WhenProductExists_ShouldReturnProduct()
+        public async Task GetByIdAsync_WhenProductExists_ShouldReturnProduct()
         {
             // Arrange
             var category = new Category("Categoria Teste");
@@ -77,7 +56,7 @@ namespace Tests.Repositories
             await _context.SaveChangesAsync();
 
             // Act
-            var result = await _repository.GetProductById(product.ProductId);
+            var result = await _repository.GetByIdAsync(product.ProductId);
 
             // Assert
             result.Should().NotBeNull();
@@ -85,67 +64,42 @@ namespace Tests.Repositories
         }
 
         [Fact]
-        public async Task GetProductById_WhenProductNotExists_ShouldReturnNull()
+        public async Task GetByIdAsync_WhenProductNotExists_ShouldReturnNull()
         {
             // Arrange
             var nonExistentId = Guid.NewGuid();
 
             // Act
-            var result = await _repository.GetProductById(nonExistentId);
+            var result = await _repository.GetByIdAsync(nonExistentId);
 
             // Assert
             result.Should().BeNull();
         }
 
         [Fact]
-        public async Task ListAllProducts_ShouldReturnAllNonDeletedProducts()
+        public async Task GetActiveAsync_ShouldReturnOnlyActiveProducts()
         {
             // Arrange
             var category = new Category("Categoria Teste");
             await _context.Categories.AddAsync(category);
             await _context.SaveChangesAsync();
 
-            var product1 = new Product("Produto 1", "Descrição 1", 10.00m, true, category.CategoryId);
-            var product2 = new Product("Produto 2", "Descrição 2", 20.00m, true, category.CategoryId);
-            var product3 = new Product("Produto 3", "Descrição 3", 30.00m, true, category.CategoryId);
-            product3.Delete();
-
-            await _context.Products.AddRangeAsync(product1, product2, product3);
-            await _context.SaveChangesAsync();
-
-            // Act
-            var result = await _repository.ListAllProducts(includeDeleted: false);
-
-            // Assert
-            result.Should().HaveCount(2);
-            result.Should().Contain(p => p.Name == "Produto 1");
-            result.Should().Contain(p => p.Name == "Produto 2");
-        }
-
-        [Fact]
-        public async Task ListAllProducts_WithIncludeDeleted_ShouldReturnAllProducts()
-        {
-            // Arrange
-            var category = new Category("Categoria Teste");
-            await _context.Categories.AddAsync(category);
-            await _context.SaveChangesAsync();
-
-            var product1 = new Product("Produto 1", "Descrição 1", 10.00m, true, category.CategoryId);
-            var product2 = new Product("Produto 2", "Descrição 2", 20.00m, true, category.CategoryId);
-            product2.Delete();
+            var product1 = new Product("Produto 1", "Descrição", 10.00m, true, category.CategoryId);
+            var product2 = new Product("Produto 2", "Descrição", 20.00m, false, category.CategoryId);
 
             await _context.Products.AddRangeAsync(product1, product2);
             await _context.SaveChangesAsync();
 
             // Act
-            var result = await _repository.ListAllProducts(includeDeleted: true);
+            var result = await _repository.GetActiveAsync();
 
             // Assert
-            result.Should().HaveCount(2);
+            result.Should().HaveCount(1);
+            result.First().Name.Should().Be("Produto 1");
         }
 
         [Fact]
-        public async Task GetProductsByCategory_ShouldReturnProductsInCategory()
+        public async Task GetByCategoryAsync_ShouldReturnProductsInCategory()
         {
             // Arrange
             var category1 = new Category("Categoria 1");
@@ -161,7 +115,7 @@ namespace Tests.Repositories
             await _context.SaveChangesAsync();
 
             // Act
-            var result = await _repository.GetProductsByCategory(category1.CategoryId);
+            var result = await _repository.GetByCategoryAsync(category1.CategoryId);
 
             // Assert
             result.Should().HaveCount(2);
@@ -169,7 +123,7 @@ namespace Tests.Repositories
         }
 
         [Fact]
-        public async Task GetDeletedProducts_ShouldReturnOnlyDeletedProducts()
+        public async Task GetByPriceRangeAsync_ShouldReturnProductsInRange()
         {
             // Arrange
             var category = new Category("Categoria Teste");
@@ -178,13 +132,13 @@ namespace Tests.Repositories
 
             var product1 = new Product("Produto 1", "Descrição", 10.00m, true, category.CategoryId);
             var product2 = new Product("Produto 2", "Descrição", 20.00m, true, category.CategoryId);
-            product2.Delete();
+            var product3 = new Product("Produto 3", "Descrição", 30.00m, true, category.CategoryId);
 
-            await _context.Products.AddRangeAsync(product1, product2);
+            await _context.Products.AddRangeAsync(product1, product2, product3);
             await _context.SaveChangesAsync();
 
             // Act
-            var result = await _repository.GetDeletedProducts();
+            var result = await _repository.GetByPriceRangeAsync(15.00m, 25.00m);
 
             // Assert
             result.Should().HaveCount(1);
@@ -192,89 +146,7 @@ namespace Tests.Repositories
         }
 
         [Fact]
-        public async Task GetActiveProducts_ShouldReturnOnlyActiveProducts()
-        {
-            // Arrange
-            var category = new Category("Categoria Teste");
-            await _context.Categories.AddAsync(category);
-            await _context.SaveChangesAsync();
-
-            var product1 = new Product("Produto 1", "Descrição", 10.00m, true, category.CategoryId);
-            var product2 = new Product("Produto 2", "Descrição", 20.00m, false, category.CategoryId);
-
-            await _context.Products.AddRangeAsync(product1, product2);
-            await _context.SaveChangesAsync();
-
-            // Act
-            var result = await _repository.GetActiveProducts();
-
-            // Assert
-            result.Should().HaveCount(1);
-            result.First().Name.Should().Be("Produto 1");
-        }
-
-        [Fact]
-        public async Task GetInactiveProducts_ShouldReturnOnlyInactiveProducts()
-        {
-            // Arrange
-            var category = new Category("Categoria Teste");
-            await _context.Categories.AddAsync(category);
-            await _context.SaveChangesAsync();
-
-            var product1 = new Product("Produto 1", "Descrição", 10.00m, true, category.CategoryId);
-            var product2 = new Product("Produto 2", "Descrição", 20.00m, false, category.CategoryId);
-
-            await _context.Products.AddRangeAsync(product1, product2);
-            await _context.SaveChangesAsync();
-
-            // Act
-            var result = await _repository.GetInactiveProducts();
-
-            // Assert
-            result.Should().HaveCount(1);
-            result.First().Name.Should().Be("Produto 2");
-        }
-
-        [Fact]
-        public async Task UpdateProduct_ShouldUpdateProductName()
-        {
-            // Arrange
-            var category = new Category("Categoria Teste");
-            await _context.Categories.AddAsync(category);
-            await _context.SaveChangesAsync();
-
-            var product = new Product("Produto Original", "Descrição", 10.00m, true, category.CategoryId);
-            await _context.Products.AddAsync(product);
-            await _context.SaveChangesAsync();
-
-            var updateDto = new RequestProductDto("Produto Atualizado", "Descrição", 10.00m, true, category.CategoryId);
-
-            // Act
-            await _repository.UpdateProduct(product.ProductId, updateDto);
-
-            // Assert
-            var updatedProduct = await _context.Products.FindAsync(product.ProductId);
-            updatedProduct!.Name.Should().Be("Produto Atualizado");
-        }
-
-        [Fact]
-        public async Task UpdateProduct_WhenNotFound_ShouldThrowException()
-        {
-            // Arrange
-            var categoryId = Guid.NewGuid();
-            var updateDto = new RequestProductDto("Produto", "Descrição", 10.00m, true, categoryId);
-            var nonExistentId = Guid.NewGuid();
-
-            // Act
-            Func<Task> act = async () => await _repository.UpdateProduct(nonExistentId, updateDto);
-
-            // Assert
-            await act.Should().ThrowAsync<KeyNotFoundException>()
-                .WithMessage($"Produto com id:{nonExistentId} não encontrado!");
-        }
-
-        [Fact]
-        public async Task UpdateProductPrice_ShouldUpdatePrice()
+        public async Task GetWithCategoryAsync_ShouldReturnProductWithCategory()
         {
             // Arrange
             var category = new Category("Categoria Teste");
@@ -286,35 +158,16 @@ namespace Tests.Repositories
             await _context.SaveChangesAsync();
 
             // Act
-            await _repository.UpdateProductPrice(product.ProductId, 25.00m);
+            var result = await _repository.GetWithCategoryAsync(product.ProductId);
 
             // Assert
-            var updatedProduct = await _context.Products.FindAsync(product.ProductId);
-            updatedProduct!.Price.Should().Be(25.00m);
+            result.Should().NotBeNull();
+            result!.Category.Should().NotBeNull();
+            result.Category!.Name.Should().Be("Categoria Teste");
         }
 
         [Fact]
-        public async Task UpdateProductDescription_ShouldUpdateDescription()
-        {
-            // Arrange
-            var category = new Category("Categoria Teste");
-            await _context.Categories.AddAsync(category);
-            await _context.SaveChangesAsync();
-
-            var product = new Product("Produto", "Descrição Original", 10.00m, true, category.CategoryId);
-            await _context.Products.AddAsync(product);
-            await _context.SaveChangesAsync();
-
-            // Act
-            await _repository.UpdateProductDescription(product.ProductId, "Nova Descrição");
-
-            // Assert
-            var updatedProduct = await _context.Products.FindAsync(product.ProductId);
-            updatedProduct!.Description.Should().Be("Nova Descrição");
-        }
-
-        [Fact]
-        public async Task DeleteProduct_ShouldSoftDeleteProduct()
+        public async Task GetWithTagsAsync_ShouldReturnProductWithTags()
         {
             // Arrange
             var category = new Category("Categoria Teste");
@@ -322,180 +175,24 @@ namespace Tests.Repositories
             await _context.SaveChangesAsync();
 
             var product = new Product("Produto", "Descrição", 10.00m, true, category.CategoryId);
+            var tag1 = new Tag("Tag 1");
+            var tag2 = new Tag("Tag 2");
+            product.AddTag(tag1);
+            product.AddTag(tag2);
+
             await _context.Products.AddAsync(product);
             await _context.SaveChangesAsync();
 
             // Act
-            await _repository.DeleteProduct(product.ProductId);
+            var result = await _repository.GetWithTagsAsync(product.ProductId);
 
             // Assert
-            var deletedProduct = await _context.Products.FindAsync(product.ProductId);
-            deletedProduct.Should().NotBeNull();
-            deletedProduct!.IsDeleted.Should().BeTrue();
+            result.Should().NotBeNull();
+            result!.Tags.Should().HaveCount(2);
         }
 
         [Fact]
-        public async Task DeleteProduct_WhenNotFound_ShouldThrowException()
-        {
-            // Arrange
-            var nonExistentId = Guid.NewGuid();
-
-            // Act
-            Func<Task> act = async () => await _repository.DeleteProduct(nonExistentId);
-
-            // Assert
-            await act.Should().ThrowAsync<KeyNotFoundException>()
-                .WithMessage($"Produto com id:{nonExistentId} não encontrado!");
-        }
-
-        [Fact]
-        public async Task RestoreProduct_ShouldRestoreDeletedProduct()
-        {
-            // Arrange
-            var category = new Category("Categoria Teste");
-            await _context.Categories.AddAsync(category);
-            await _context.SaveChangesAsync();
-
-            var product = new Product("Produto", "Descrição", 10.00m, true, category.CategoryId);
-            product.Delete();
-            await _context.Products.AddAsync(product);
-            await _context.SaveChangesAsync();
-
-            // Act
-            await _repository.RestoreProduct(product.ProductId);
-
-            // Assert
-            var restoredProduct = await _context.Products.FindAsync(product.ProductId);
-            restoredProduct!.IsDeleted.Should().BeFalse();
-        }
-
-        [Fact]
-        public async Task ActivateProduct_ShouldSetActiveToTrue()
-        {
-            // Arrange
-            var category = new Category("Categoria Teste");
-            await _context.Categories.AddAsync(category);
-            await _context.SaveChangesAsync();
-
-            var product = new Product("Produto", "Descrição", 10.00m, false, category.CategoryId);
-            await _context.Products.AddAsync(product);
-            await _context.SaveChangesAsync();
-
-            // Act
-            await _repository.ActivateProduct(product.ProductId);
-
-            // Assert
-            var activatedProduct = await _context.Products.FindAsync(product.ProductId);
-            activatedProduct!.Active.Should().BeTrue();
-        }
-
-        [Fact]
-        public async Task DeactivateProduct_ShouldSetActiveToFalse()
-        {
-            // Arrange
-            var category = new Category("Categoria Teste");
-            await _context.Categories.AddAsync(category);
-            await _context.SaveChangesAsync();
-
-            var product = new Product("Produto", "Descrição", 10.00m, true, category.CategoryId);
-            await _context.Products.AddAsync(product);
-            await _context.SaveChangesAsync();
-
-            // Act
-            await _repository.DeactivateProduct(product.ProductId);
-
-            // Assert
-            var deactivatedProduct = await _context.Products.FindAsync(product.ProductId);
-            deactivatedProduct!.Active.Should().BeFalse();
-        }
-
-        [Fact]
-        public async Task ChangeProductCategory_ShouldUpdateCategory()
-        {
-            // Arrange
-            var oldCategory = new Category("Categoria Antiga");
-            var newCategory = new Category("Categoria Nova");
-            await _context.Categories.AddRangeAsync(oldCategory, newCategory);
-            await _context.SaveChangesAsync();
-
-            var product = new Product("Produto", "Descrição", 10.00m, true, oldCategory.CategoryId);
-            await _context.Products.AddAsync(product);
-            await _context.SaveChangesAsync();
-
-            // Act
-            await _repository.ChangeProductCategory(product.ProductId, newCategory.CategoryId);
-
-            // Assert
-            var updatedProduct = await _context.Products.FindAsync(product.ProductId);
-            updatedProduct!.CategoryId.Should().Be(newCategory.CategoryId);
-        }
-
-        [Fact]
-        public async Task AddTagToProduct_ShouldAddTag()
-        {
-            // Arrange
-            var category = new Category("Categoria Teste");
-            await _context.Categories.AddAsync(category);
-            await _context.SaveChangesAsync();
-
-            var product = new Product("Produto", "Descrição", 10.00m, true, category.CategoryId);
-            var tag = new Tag("Tag Teste");
-            await _context.Products.AddAsync(product);
-            await _context.Tags.AddAsync(tag);
-            await _context.SaveChangesAsync();
-
-            // Act
-            await _repository.AddTagToProduct(product.ProductId, tag.TagId);
-
-            // Assert
-            var updatedProduct = await _context.Products
-                .Include(p => p.Tags)
-                .FirstAsync(p => p.ProductId == product.ProductId);
-            updatedProduct.Tags.Should().Contain(tag);
-        }
-
-        [Fact]
-        public async Task AddTagToProduct_WhenProductNotFound_ShouldThrowException()
-        {
-            // Arrange
-            var tag = new Tag("Tag Teste");
-            await _context.Tags.AddAsync(tag);
-            await _context.SaveChangesAsync();
-
-            var nonExistentProductId = Guid.NewGuid();
-
-            // Act
-            Func<Task> act = async () => await _repository.AddTagToProduct(nonExistentProductId, tag.TagId);
-
-            // Assert
-            await act.Should().ThrowAsync<KeyNotFoundException>()
-                .WithMessage($"Produto com id:{nonExistentProductId} não encontrado!");
-        }
-
-        [Fact]
-        public async Task AddTagToProduct_WhenTagNotFound_ShouldThrowException()
-        {
-            // Arrange
-            var category = new Category("Categoria Teste");
-            await _context.Categories.AddAsync(category);
-            await _context.SaveChangesAsync();
-
-            var product = new Product("Produto", "Descrição", 10.00m, true, category.CategoryId);
-            await _context.Products.AddAsync(product);
-            await _context.SaveChangesAsync();
-
-            var nonExistentTagId = Guid.NewGuid();
-
-            // Act
-            Func<Task> act = async () => await _repository.AddTagToProduct(product.ProductId, nonExistentTagId);
-
-            // Assert
-            await act.Should().ThrowAsync<KeyNotFoundException>()
-                .WithMessage($"Tag com id:{nonExistentTagId} não encontrada!");
-        }
-
-        [Fact]
-        public async Task RemoveTagFromProduct_ShouldRemoveTag()
+        public async Task GetWithCategoryAndTagsAsync_ShouldReturnProductWithCategoryAndTags()
         {
             // Arrange
             var category = new Category("Categoria Teste");
@@ -505,21 +202,73 @@ namespace Tests.Repositories
             var product = new Product("Produto", "Descrição", 10.00m, true, category.CategoryId);
             var tag = new Tag("Tag Teste");
             product.AddTag(tag);
+
             await _context.Products.AddAsync(product);
             await _context.SaveChangesAsync();
 
             // Act
-            await _repository.RemoveTagFromProduct(product.ProductId, tag.TagId);
+            var result = await _repository.GetWithCategoryAndTagsAsync(product.ProductId);
 
             // Assert
-            var updatedProduct = await _context.Products
-                .Include(p => p.Tags)
-                .FirstAsync(p => p.ProductId == product.ProductId);
-            updatedProduct.Tags.Should().NotContain(tag);
+            result.Should().NotBeNull();
+            result!.Category.Should().NotBeNull();
+            result.Tags.Should().HaveCount(1);
         }
 
         [Fact]
-        public async Task ClearProductTags_ShouldRemoveAllTags()
+        public async Task SearchByNameAsync_ShouldReturnProductsMatchingSearchTerm()
+        {
+            // Arrange
+            var category = new Category("Categoria Teste");
+            await _context.Categories.AddAsync(category);
+            await _context.SaveChangesAsync();
+
+            var product1 = new Product("Notebook Dell", "Descrição", 1000.00m, true, category.CategoryId);
+            var product2 = new Product("Notebook Lenovo", "Descrição", 800.00m, true, category.CategoryId);
+            var product3 = new Product("Mouse Logitech", "Descrição", 50.00m, true, category.CategoryId);
+
+            await _context.Products.AddRangeAsync(product1, product2, product3);
+            await _context.SaveChangesAsync();
+
+            // Act
+            var result = await _repository.SearchByNameAsync("Notebook");
+
+            // Assert
+            result.Should().HaveCount(2);
+            result.Should().AllSatisfy(p => p.Name.Should().Contain("Notebook"));
+        }
+
+        [Fact]
+        public async Task ExistsWithNameAsync_WhenNameExists_ShouldReturnTrue()
+        {
+            // Arrange
+            var category = new Category("Categoria Teste");
+            await _context.Categories.AddAsync(category);
+            await _context.SaveChangesAsync();
+
+            var product = new Product("Produto Único", "Descrição", 10.00m, true, category.CategoryId);
+            await _context.Products.AddAsync(product);
+            await _context.SaveChangesAsync();
+
+            // Act
+            var result = await _repository.ExistsWithNameAsync("Produto Único");
+
+            // Assert
+            result.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ExistsWithNameAsync_WhenNameNotExists_ShouldReturnFalse()
+        {
+            // Act
+            var result = await _repository.ExistsWithNameAsync("Produto Inexistente");
+
+            // Assert
+            result.Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task ExistsWithNameAsync_WhenExcludingProductId_ShouldNotCountExcludedProduct()
         {
             // Arrange
             var category = new Category("Categoria Teste");
@@ -527,19 +276,63 @@ namespace Tests.Repositories
             await _context.SaveChangesAsync();
 
             var product = new Product("Produto", "Descrição", 10.00m, true, category.CategoryId);
-            product.AddTag(new Tag("Tag 1"));
-            product.AddTag(new Tag("Tag 2"));
             await _context.Products.AddAsync(product);
             await _context.SaveChangesAsync();
 
             // Act
-            await _repository.ClearProductTags(product.ProductId);
+            var result = await _repository.ExistsWithNameAsync("Produto", product.ProductId);
 
             // Assert
-            var updatedProduct = await _context.Products
-                .Include(p => p.Tags)
-                .FirstAsync(p => p.ProductId == product.ProductId);
-            updatedProduct.Tags.Should().BeEmpty();
+            result.Should().BeFalse();
+        }
+
+        [Fact]
+        public void Update_ShouldMarkProductAsModified()
+        {
+            // Arrange
+            var category = new Category("Categoria Teste");
+            _context.Categories.Add(category);
+            _context.SaveChanges();
+
+            var product = new Product("Produto Original", "Descrição", 10.00m, true, category.CategoryId);
+            _context.Products.Add(product);
+            _context.SaveChanges();
+
+            var updatedProduct = _context.Products.Find(product.ProductId)!;
+            updatedProduct.UpdateName("Produto Atualizado");
+            updatedProduct.UpdateDescription("Nova Descrição");
+            updatedProduct.UpdatePrice(15.00m);
+
+            // Act
+            _repository.Update(updatedProduct);
+
+            // Assert
+            _context.SaveChanges();
+            var result = _context.Products.Find(product.ProductId);
+            result!.Name.Should().Be("Produto Atualizado");
+            result.Description.Should().Be("Nova Descrição");
+            result.Price.Should().Be(15.00m);
+        }
+
+        [Fact]
+        public void Remove_ShouldMarkProductAsDeleted()
+        {
+            // Arrange
+            var category = new Category("Categoria Teste");
+            _context.Categories.Add(category);
+            _context.SaveChanges();
+
+            var product = new Product("Produto", "Descrição", 10.00m, true, category.CategoryId);
+            _context.Products.Add(product);
+            _context.SaveChanges();
+
+            // Act
+            _repository.Remove(product);
+            _context.SaveChanges();
+
+            // Assert
+            var result = _context.Products.Find(product.ProductId);
+            result.Should().BeNull();
         }
 
         public void Dispose()
